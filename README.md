@@ -1,8 +1,8 @@
 # <div align="center">
 
-# 🚀 **FlowForge AI**
+# 🚀 **FlowForge AI**:### *Intelligent Shop-Floor Scheduling System*
 
-### *Intelligent Shop-Floor Scheduling System*
+
 ---
 
 ### <p align="center">
