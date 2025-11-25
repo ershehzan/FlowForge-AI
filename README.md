@@ -1,5 +1,3 @@
-# <div align="center">
-
 # 🚀 **FlowForge AI** : *Intelligent Shop-Floor Scheduling System*
 
 
