@@ -1,64 +1,108 @@
-# **FlowForge AI – Intelligent Shop-Floor Scheduling System**
+# <div align="center">
 
-FlowForge AI is an **intelligent job-shop scheduling engine** designed for real-world manufacturing environments.
-It integrates:
+# 🚀 **FlowForge AI**
 
-* ✔ Classical heuristics (SPT, EDD)
-* ✔ Genetic Algorithm optimization
-* ✔ Supervisor agent for machine failure handling
-* ✔ Gantt chart visualization
-* ✔ FastAPI backend + Kaggle notebook
+### *Intelligent Shop-Floor Scheduling System*
+
+<img src="https://img.icons8.com/external-flaticons-flat-flat-icons/64/000000/factory.png"/>
 
 ---
 
-## 🚀 Features
+### <p align="center">
 
-### 🔹 1. Heuristic Scheduling
+<img src="https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white">
+<img src="https://img.shields.io/badge/FastAPI-Backend-success?logo=fastapi&logoColor=white">
+<img src="https://img.shields.io/badge/Genetic%20Algorithm-Optimization-red?logo=dna&logoColor=white">
+<img src="https://img.shields.io/badge/Kaggle-Notebook-blue?logo=kaggle&logoColor=white">
+<img src="https://img.shields.io/badge/License-MIT-orange">
+</p>
 
-Implements classic rules:
+---
+
+### <p align="center">
+
+An intelligent **job-shop scheduling engine** combining
+classical heuristics, evolutionary optimization, and autonomous supervisor agents
+for real-world manufacturing systems.
+
+</p>
+
+</div>
+
+---
+
+# 🧠 Overview
+
+FlowForge AI delivers **dynamic, near-optimal scheduling** using:
+
+* ✔ Shortest Processing Time (SPT)
+* ✔ Earliest Due Date (EDD)
+* ✔ Genetic Algorithm optimization
+* ✔ Real-time machine failure handling
+* ✔ Gantt chart visualization
+* ✔ Optional FastAPI backend
+* ✔ Kaggle notebook version
+
+---
+
+# ✨ **Core Features**
+
+## 🔹 1. Heuristic Scheduling
+
+Classical priority rules:
 
 * **SPT (Shortest Processing Time)**
 * **EDD (Earliest Due Date)**
 
-### 🔹 2. Genetic Algorithm (GA)
-
-Searches for near-optimal sequences by:
-
-* Chromosome crossover
-* Mutation
-* Tournament selection
-
-Achieves **lower makespan** compared to heuristics.
-
-### 🔹 3. Supervisor Agent
-
-Simulates machine breakdown:
-
-* Detects `"OK"` / `"FAIL"` events
-* Automatically triggers **re-scheduling**
-* Stores history snapshots
-
-### 🔹 4. Gantt Chart Visualization
-
-Plots:
-
-* Machine usage
-* Job sequencing
-* Timeline
-
-### 🔹 5. Full REST API (optional)
-
-Endpoints:
-
-* `/upload_jobs`
-* `/schedule`
-* `/ga_schedule`
-* `/supervisor_step`
-* `/history`
+Useful for quick baseline scheduling.
 
 ---
 
-## 📂 Project Structure
+## 🔹 2. Genetic Algorithm (GA)
+
+Evolutionary optimization featuring:
+
+* Crossover
+* Mutation
+* Tournament selection
+
+Produces **significantly lower makespan** than heuristics alone.
+
+---
+
+## 🔹 3. Supervisor Agent
+
+Simulates real manufacturing disruptions:
+
+* Detects **OK / FAIL** machine states
+* Initiates **auto rescheduling**
+* Saves state snapshots in history
+
+---
+
+## 🔹 4. Gantt Chart Visualization
+
+Generates visual timelines of:
+
+* Machine usage
+* Job ordering
+* Processing intervals
+
+---
+
+## 🔹 5. Full REST API (Optional)
+
+```
+/upload_jobs
+/schedule
+/ga_schedule
+/supervisor_step
+/history
+```
+
+---
+
+# 📁 **Project Structure**
 
 ```
 shop-floor-agent/
@@ -83,9 +127,9 @@ shop-floor-agent/
 
 ---
 
-## 🧪 Running Locally
+# 🧪 **Run Locally**
 
-### 1. Install dependencies
+### 1. Install requirements
 
 ```bash
 pip install -r requirements.txt
@@ -97,7 +141,7 @@ pip install -r requirements.txt
 uvicorn deployment.app:app --reload
 ```
 
-### 3. Open docs
+### 3. Visit docs
 
 ```
 http://127.0.0.1:8000/docs
@@ -105,33 +149,33 @@ http://127.0.0.1:8000/docs
 
 ---
 
-## 📊 Kaggle Notebook
+# 📊 **Kaggle Notebook**
 
-The notebook includes:
+Includes:
 
-* Job loading
-* SPT / EDD scheduling
+* Job dataset loader
+* SPT + EDD scheduling
 * GA optimization
 * Supervisor simulation
-* Gantt charts
+* Gantt chart rendering
 
-It runs fully offline without FastAPI.
+Runs fully offline.
 
 ---
 
-## 📈 Future Improvements
+# 🚧 **Future Improvements**
 
-* Multi-objective GA (tardiness + energy + makespan)
-* Machine setup times
+* Multi-objective GA (makespan + tardiness + energy)
+* Machine setup/changeover times
 * Worker skill matrices
-* Constraint-based optimization (OR-Tools)
-* Live dashboard with Streamlit
+* OR-Tools constraint solver
+* Streamlit dashboard
 
 ---
 
-## 🏆 Author
+# 🏆 **Author**
 
-**Shehzan Khan**
-FlowForge AI – Shop Floor Intelligence System
+### **Shehzan Khan**
 
+*FlowForge AI – Shop Floor Intelligence System*
 
