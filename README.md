@@ -1,13 +1,12 @@
 # 🚀 **FlowForge AI** : *Intelligent Shop-Floor Scheduling System*
 
-### <p align="center">
+
 
 <img src="https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white">
 <img src="https://img.shields.io/badge/FastAPI-Backend-success?logo=fastapi&logoColor=white">
 <img src="https://img.shields.io/badge/Genetic%20Algorithm-Optimization-red?logo=dna&logoColor=white">
 <img src="https://img.shields.io/badge/Kaggle-Notebook-blue?logo=kaggle&logoColor=white">
 <img src="https://img.shields.io/badge/License-MIT-orange">
-</p>
 
 ---
 
