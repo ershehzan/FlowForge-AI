@@ -1,16 +1,11 @@
 # 🚀 **FlowForge AI** : *Intelligent Shop-Floor Scheduling System*
 
-![Python]([https://img.shields.io/badge/Python-3.10%2B-blue](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white))
-![Flask]([https://img.shields.io/badge/Flask-Web%20App-green](https://img.shields.io/badge/FastAPI-Backend-success?logo=fastapi&logoColor=white))
-![Bootstrap]([https://img.shields.io/badge/UI-Bootstrap%205-purple](https://img.shields.io/badge/Genetic%20Algorithm-Optimization-red?logo=dna&logoColor=white))
-![License]([[https://img.shields.io/badge/License-MIT-orange](https://img.shields.io/badge/License-MIT-orange)](https://img.shields.io/badge/Kaggle-Notebook-blue?logo=kaggle&logoColor=white))
-![License]([https://img.shields.io/badge/License-MIT-orange](https://img.shields.io/badge/License-MIT-orange))
+![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-Backend-success?logo=fastapi&logoColor=white)
+![Genetic Algorithm](https://img.shields.io/badge/Genetic%20Algorithm-Optimization-red?logo=dna&logoColor=white)
+![Kaggle](https://img.shields.io/badge/Kaggle-Notebook-blue?logo=kaggle&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-orange)
 
-<img src="">
-<img src="">
-<img src="">
-<img src="">
-<img src="">
 
 ---
 
