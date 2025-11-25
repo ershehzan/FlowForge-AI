@@ -176,6 +176,6 @@ Runs fully offline.
 # 🏆 **Author**
 
 ### **Shehzan Khan**
-
 *FlowForge AI – Shop Floor Intelligence System*
+© 2025 Shehzan Khan. Created as a personal portfolio project.
 
