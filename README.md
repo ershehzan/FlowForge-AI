@@ -1,8 +1,5 @@
 # 🚀 **FlowForge AI** : *Intelligent Shop-Floor Scheduling System*
 
-
----
-
 ### <p align="center">
 
 <img src="https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white">
