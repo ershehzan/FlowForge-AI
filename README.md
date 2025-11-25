@@ -3,9 +3,6 @@
 # 🚀 **FlowForge AI**
 
 ### *Intelligent Shop-Floor Scheduling System*
-
-<img src="https://img.icons8.com/external-flaticons-flat-flat-icons/64/000000/factory.png"/>
-
 ---
 
 ### <p align="center">
