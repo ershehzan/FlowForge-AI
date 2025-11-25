@@ -10,13 +10,9 @@
 
 ---
 
-### <p align="center">
-
 An intelligent **job-shop scheduling engine** combining
 classical heuristics, evolutionary optimization, and autonomous supervisor agents
 for real-world manufacturing systems.
-
-</p>
 
 </div>
 
