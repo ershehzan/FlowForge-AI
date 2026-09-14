@@ -8,7 +8,7 @@ class Scheduler:
     def heuristic_schedule(self, jobs, rule='SPT'):
         jobs_sorted = sorted(
             jobs,
-            key=lambda j: j['duration'] if rule == 'SPT' else j['due']
+            key=lambda j: j['duration'] if rule == 'SPT' else j.get('due', j.get('deadline', 999))
         )
 
         assignments = []
@@ -22,14 +22,26 @@ class Scheduler:
                 'machine': best_m,
                 'start': start,
                 'duration': job['duration'],
-                'due': job['due']
+                'due': job.get('due', job.get('deadline', 999))
             })
             machine_available[best_m] = start + job['duration']
 
         return assignments
 
-    def ga_schedule(self, jobs):
-        ga = GAOptimizer(jobs, self.machines)
+    def ga_schedule(self, jobs, machine_energy=None, weights=None):
+        """
+        Run the GA optimizer and return schedule assignments.
+
+        Args:
+            jobs: list of job dicts
+            machine_energy: optional {machine_id: kwh_per_hour}
+            weights: optional fitness weight dict
+        """
+        ga = GAOptimizer(
+            jobs, self.machines,
+            machine_energy=machine_energy,
+            weights=weights,
+        )
         best = ga.optimize()
 
         # convert into assignment format
@@ -44,7 +56,7 @@ class Scheduler:
                 "machine": best_machine,
                 "start": start,
                 "duration": job["duration"],
-                "due": job["due"]
+                "due": job.get("due", job.get("deadline", 999))
             })
             machine_available[best_machine] = start + job["duration"]
 

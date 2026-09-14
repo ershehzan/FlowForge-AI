@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="FlowForge — Autonomous Production Resilience & Optimization. When the factory changes, the schedule changes with it.">
+  <title>FlowForge — Autonomous Production Resilience</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+</head>
+<body>
+
+<div class="app-shell" id="app">
+
+  <!-- ═══ HEADER ═══ -->
+  <header class="header">
+    <div class="header-left">
+      <div class="header-title">FlowForge</div>
+      <div class="header-subtitle">Autonomous Production Resilience &amp; Optimization</div>
+    </div>
+    <div class="header-right">
+      <div class="data-source-badge" id="dataSourceBadge">
+        <span class="icon">⚙</span> <span id="dataSourceText">Demo Factory Data</span>
+      </div>
+      <button class="btn btn-primary-sm" id="btnOpenUploadModal" onclick="openExcelModal()">📊 Upload Excel</button>
+      <button class="btn btn-secondary-sm" id="btnUseDemoData" onclick="useDemoData()" style="display:none">⚙ Demo Data</button>
+      <div class="factory-status" id="factoryStatus" data-status="OPERATIONAL">
+        <span class="status-dot"></span>
+        <span id="factoryStatusText">OPERATIONAL</span>
+      </div>
+    </div>
+  </header>
+
+
+  <!-- ═══ KPI STRIP ═══ -->
+  <div class="kpi-strip" id="kpiStrip">
+    <div class="kpi-card resilience">
+      <span class="kpi-label">Factory Resilience</span>
+      <span class="kpi-value" id="kpiResilience">—</span>
+      <span class="kpi-sub" id="kpiResilienceLabel"></span>
+    </div>
+    <div class="kpi-card machines">
+      <span class="kpi-label">Active Machines</span>
+      <span class="kpi-value" id="kpiMachines">—</span>
+      <span class="kpi-sub" id="kpiMachinesSub"></span>
+    </div>
+    <div class="kpi-card late-jobs" id="kpiLateCard">
+      <span class="kpi-label">Late Jobs</span>
+      <span class="kpi-value" id="kpiLateJobs">—</span>
+      <span class="kpi-change" id="kpiLateChange"></span>
+    </div>
+    <div class="kpi-card makespan">
+      <span class="kpi-label">Makespan</span>
+      <span class="kpi-value" id="kpiMakespan">—</span>
+      <span class="kpi-change" id="kpiMakespanChange"></span>
+    </div>
+    <div class="kpi-card energy">
+      <span class="kpi-label">Energy</span>
+      <span class="kpi-value" id="kpiEnergy">—</span>
+      <span class="kpi-change" id="kpiEnergyChange"></span>
+    </div>
+  </div>
+
+  <!-- ═══ MACHINE STATUS BAR ═══ -->
+  <div class="machine-status-bar" id="machineStatusBar"></div>
+
+  <!-- ═══ GANTT CHART ═══ -->
+  <div class="gantt-container" id="ganttContainer">
+    <div class="gantt-header">
+      <div class="section-title"><span class="icon">📊</span> Production Schedule</div>
+      <div class="gantt-legend" id="ganttLegend">
+        <div class="gantt-legend-item"><div class="gantt-legend-dot" style="background:#4F6D8E"></div> Scheduled</div>
+        <div class="gantt-legend-item"><div class="gantt-legend-dot" style="background:#60A5FA"></div> Reassigned</div>
+        <div class="gantt-legend-item"><div class="gantt-legend-dot" style="background:#D97706"></div> At Risk</div>
+      </div>
+    </div>
+    <div class="gantt-chart" id="ganttChart">
+      <div class="panel-empty">
+        <div class="icon">📋</div>
+        <div class="text">Initialize factory to generate baseline schedule</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ PANELS: What Changed + Before vs After ═══ -->
+  <div class="panels-grid" id="panelsGrid">
+    <!-- What Changed -->
+    <div class="panel" id="whatChangedPanel">
+      <div class="section-title"><span class="icon">🔔</span> What Changed?</div>
+      <div class="panel-empty" id="whatChangedEmpty">
+        <div class="icon">✓</div>
+        <div class="text">No active disruption<br>Factory operating normally</div>
+      </div>
+      <div id="whatChangedContent" style="display:none"></div>
+    </div>
+
+    <!-- Before vs After -->
+    <div class="panel" id="comparisonPanel">
+      <div class="section-title"><span class="icon">📈</span> Before vs After</div>
+      <div class="panel-empty" id="comparisonEmpty">
+        <div class="icon">⚖</div>
+        <div class="text">Trigger a disruption to see<br>schedule comparison</div>
+      </div>
+      <div id="comparisonContent" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- ═══ AI EXPLANATION ═══ -->
+  <div class="explanation-panel" id="explanationPanel" style="display:none">
+    <div class="explanation-badge">✦ FlowForge Decision · AI-generated explanation</div>
+    <div class="explanation-content" id="explanationContent"></div>
+    <div class="explanation-facts" id="explanationFacts"></div>
+  </div>
+
+  <!-- ═══ SCENARIO SIMULATOR ═══ -->
+  <div class="simulator">
+    <div class="section-title"><span class="icon">🎮</span> Simulate Disruption</div>
+    <div class="simulator-controls" id="simulatorControls">
+      <button class="sim-btn danger" id="btnMachineFailure" onclick="showMachineSelector('failure')">🔴 Machine Failure</button>
+      <button class="sim-btn warning" id="btnUrgentOrder" onclick="triggerUrgentJob()">⚡ Urgent Order</button>
+      <button class="sim-btn warning" id="btnDeadlineChange" onclick="triggerDeadlineChange()">⏰ Deadline Change</button>
+      <button class="sim-btn danger" id="btnCancellation" onclick="triggerJobCancellation()">❌ Job Cancellation</button>
+      <button class="sim-btn danger" id="btnMultipleFailures" onclick="triggerMultipleFailures()">🔥 Multiple Failures</button>
+      <button class="sim-btn active-btn" id="btnRecoverMachine" onclick="showMachineSelector('recovery')" style="display:none">🔧 Recover Machine</button>
+      <button class="sim-btn reset-btn" id="btnReset" onclick="resetFactory()">↻ Reset Factory</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Machine Selector Modal -->
+<div class="machine-selector" id="machineSelector">
+  <div class="machine-selector-inner">
+    <div class="machine-selector-title" id="machineSelectorTitle">Select Machine</div>
+    <div class="machine-grid" id="machineGrid"></div>
+    <button class="machine-selector-cancel" onclick="hideMachineSelector()">Cancel</button>
+  </div>
+</div>
+
+<!-- Excel Upload Modal -->
+<div class="excel-modal-overlay" id="excelModalOverlay" style="display:none">
+  <div class="excel-modal">
+    <div class="excel-modal-header">
+      <div class="excel-modal-title">📊 Load Factory Data</div>
+      <button class="excel-modal-close" onclick="closeExcelModal()">✕</button>
+    </div>
+    <div class="excel-modal-body">
+      <p class="excel-modal-subtitle">Upload your production planning Excel file (<code>.xlsx</code> or <code>.xls</code>) to feed custom factory data into FlowForge's autonomous engine.</p>
+
+      <!-- Drag and drop zone -->
+      <div class="dropzone" id="dropzone" onclick="document.getElementById('excelFileInput').click()">
+        <div class="dropzone-icon">📥</div>
+        <div class="dropzone-text"><strong>Drag &amp; Drop Excel file here</strong></div>
+        <div class="dropzone-sub">or click to browse from computer</div>
+        <input type="file" id="excelFileInput" accept=".xlsx,.xls" style="display:none" onchange="handleFileSelect(event)">
+        <button type="button" class="btn btn-secondary-sm" style="margin-top:10px" onclick="event.stopPropagation(); document.getElementById('excelFileInput').click()">Browse Files</button>
+      </div>
+
+      <!-- Selected File Info -->
+      <div class="file-selected-info" id="fileSelectedInfo" style="display:none">
+        <span class="icon">📄</span> <span id="selectedFileName">filename.xlsx</span> (<span id="selectedFileSize">0 KB</span>)
+      </div>
+
+      <!-- Loading Indicator -->
+      <div class="upload-loading" id="uploadLoading" style="display:none">
+        <div class="spinner"></div>
+        <div id="uploadLoadingText">Reading factory dataset &amp; validating workbook...</div>
+      </div>
+
+      <!-- Validation Error Box -->
+      <div class="excel-error-box" id="excelErrorBox" style="display:none">
+        <div class="error-box-title">⚠ Data Validation Failed</div>
+        <div class="error-box-list" id="excelErrorList"></div>
+      </div>
+
+      <!-- Upload Preview Card -->
+      <div class="excel-preview-box" id="excelPreviewBox" style="display:none">
+        <div class="preview-title">✓ Factory Data Loaded</div>
+        <div class="preview-metrics">
+          <div class="preview-metric"><span class="label">Machines</span><span class="val" id="prevMachines">—</span></div>
+          <div class="preview-metric"><span class="label">Jobs</span><span class="val" id="prevJobs">—</span></div>
+          <div class="preview-metric"><span class="label">High Priority</span><span class="val" id="prevHighPriority">—</span></div>
+          <div class="preview-metric"><span class="label">Total Energy</span><span class="val" id="prevEnergy">—</span></div>
+        </div>
+      </div>
+
+      <div class="template-download-note">
+        Need a sample dataset? <a href="/examples/factory_data_template.xlsx" download="factory_data_template.xlsx">Download Sample Excel Template</a>
+      </div>
+    </div>
+    <div class="excel-modal-footer">
+      <button class="btn btn-secondary" onclick="closeExcelModal()">Cancel</button>
+      <button class="btn btn-primary" id="btnConfirmExcel" onclick="uploadAndOptimize()" disabled>Run Autonomous Engine</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+
+</body>
+</html>

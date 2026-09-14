@@ -1,0 +1,31 @@
+{
+  "machines": {
+    "M1": {"id": "M1", "status": "available", "energy_kwh_per_hour": 8.0, "capacity": 1},
+    "M2": {"id": "M2", "status": "available", "energy_kwh_per_hour": 10.5, "capacity": 1},
+    "M3": {"id": "M3", "status": "available", "energy_kwh_per_hour": 12.0, "capacity": 1},
+    "M4": {"id": "M4", "status": "available", "energy_kwh_per_hour": 7.5, "capacity": 1},
+    "M5": {"id": "M5", "status": "available", "energy_kwh_per_hour": 7.0, "capacity": 1},
+    "M6": {"id": "M6", "status": "available", "energy_kwh_per_hour": 9.0, "capacity": 1}
+  },
+  "jobs": [
+    {"job_id": "J1",  "duration": 45, "deadline": 200, "priority": 2},
+    {"job_id": "J2",  "duration": 30, "deadline": 120, "priority": 3},
+    {"job_id": "J3",  "duration": 60, "deadline": 250, "priority": 1},
+    {"job_id": "J4",  "duration": 35, "deadline": 150, "priority": 2},
+    {"job_id": "J5",  "duration": 50, "deadline": 180, "priority": 3},
+    {"job_id": "J6",  "duration": 25, "deadline": 100, "priority": 4},
+    {"job_id": "J7",  "duration": 55, "deadline": 220, "priority": 2},
+    {"job_id": "J8",  "duration": 40, "deadline": 160, "priority": 3},
+    {"job_id": "J9",  "duration": 20, "deadline": 90,  "priority": 5},
+    {"job_id": "J10", "duration": 65, "deadline": 300, "priority": 1},
+    {"job_id": "J11", "duration": 30, "deadline": 140, "priority": 3},
+    {"job_id": "J12", "duration": 45, "deadline": 260, "priority": 2}
+  ],
+  "ga_weights": {
+    "makespan": 0.30,
+    "tardiness": 0.35,
+    "downtime": 0.15,
+    "energy": 0.20
+  },
+  "notes": "All energy values are simulation parameters, not real industrial measurements."
+}
