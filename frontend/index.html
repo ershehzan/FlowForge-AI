@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="FlowForge — Autonomous Production Resilience & Optimization. When the factory changes, the schedule changes with it.">
+  <meta name="description" content="FlowForge — Autonomous Manufacturing Operations & Resilience Platform. When the factory changes, the production plan changes with it.">
   <title>FLOWFORGE — Production that adapts.</title>
-  <link rel="stylesheet" href="/static/styles.css?v=6.0">
+  <link rel="stylesheet" href="/static/styles.css?v=6.1">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
 </head>
 <body>
@@ -15,11 +15,16 @@
     <nav class="nav-bar">
       <a href="#hero" class="nav-logo">FLOWFORGE</a>
       <div class="nav-links">
-        <a href="#import" class="nav-link">Factory Data</a>
-        <a href="#control-center" class="nav-link">Control Center</a>
-        <a href="#explorer" class="nav-link">Factory Explorer</a>
+        <a href="#control-center" class="nav-link">Command Center</a>
+        <a href="#production" class="nav-link">Production</a>
+        <a href="#explorer" class="nav-link">Shop Floor</a>
+        <a href="#inventory" class="nav-link">Inventory</a>
+        <a href="#maintenance" class="nav-link">Maintenance</a>
+        <a href="#analytics" class="nav-link">Analytics</a>
+        <a href="#copilot" class="nav-link">AI Copilot</a>
         <a href="#disruption" class="nav-link">Scenarios</a>
         <a href="#decision" class="nav-link">History</a>
+        <a href="#import" class="nav-link">Data</a>
       </div>
       <div class="nav-status-chip" id="navStatusChip">
         <span class="nav-status-dot"></span>
@@ -54,7 +59,7 @@
   </section>
 
 
-  <!-- ═══ SCREEN 2: EXCEL IMPORT ("Bring your factory.") ═══ -->
+  <!-- ═══ SCREEN 2: DATA INGESTION ("Bring your factory.") ═══ -->
   <section class="section-container screen-import" id="import">
     <div class="section-label">Data Ingestion</div>
     <h2 class="section-headline">Bring your factory.</h2>
@@ -82,88 +87,85 @@
   </section>
 
 
-  <!-- ═══ SCREEN 3: FACTORY EXPLORER ("Your factory.") ═══ -->
-  <section class="screen-explorer" id="explorer">
-    <div class="terminal-enclosure">
-      <!-- Hex Screws -->
-      <div class="terminal-screw screw-tl"></div>
-      <div class="terminal-screw screw-tr"></div>
-      <div class="terminal-screw screw-bl"></div>
-      <div class="terminal-screw screw-br"></div>
-
-      <div class="terminal-screen">
-        <div class="terminal-header">
-          <div class="terminal-title">
-            <span>✦</span>
-            <span>FLOWFORGE Factory Explorer</span>
-          </div>
-          <div class="terminal-hamburger">
-            <span></span><span></span><span></span>
-          </div>
-        </div>
-
-        <h2 class="explorer-title">Your factory.</h2>
-
-        <!-- 6 Machines Grid -->
-        <div class="machines-grid" id="machinesGrid">
-          <!-- Populated dynamically via app.js -->
-        </div>
-      </div>
-
-      <!-- Industrial Hardware Rocker Switch -->
-      <div class="terminal-footer-controls">
-        <div class="rocker-switch" title="Terminal Power"></div>
-      </div>
-    </div>
-  </section>
-
-
-  <!-- ═══ SCREEN 4: CONTROL CENTER (STUDIO DISPLAY MONITOR) ═══ -->
+  <!-- ═══ MODULE 1: COMMAND CENTER (STUDIO MONITOR) ═══ -->
   <section class="screen-control-center" id="control-center">
-    <!-- Monitor Enclosure -->
     <div class="monitor-frame">
       <div class="monitor-camera"></div>
       <div class="monitor-screen">
-        <div class="monitor-top-bar">FLOWFORGE Control Center Dashboard</div>
+        <div class="monitor-top-bar">
+          <span>FLOWFORGE Command Center — Real-Time Production State</span>
+          <span class="monitor-badge" id="commandCenterLiveBadge">LIVE TELEMETRY</span>
+        </div>
         
         <h2 class="monitor-greeting" id="monitorGreeting">
           Good morning. Your factory is <strong>running smoothly.</strong>
         </h2>
 
-        <!-- Clean Horizontal KPI Strip with Thin Dividers -->
-        <div class="monitor-kpi-strip">
-          <div class="monitor-kpi-item">
-            <div class="kpi-header-row">
+        <!-- Factory Status & Primary KPIs Grid -->
+        <div class="command-kpi-grid">
+          <div class="command-kpi-card">
+            <div class="kpi-meta-row">
               <span class="kpi-icon">🛡️</span>
-              <span>Resilience</span>
+              <span class="kpi-label">Resilience Score</span>
             </div>
-            <div class="kpi-big-value" id="kpiResilience">87</div>
+            <div class="kpi-main-val" id="ccResilience">87<span class="kpi-sub-unit">/100</span></div>
+            <div class="kpi-footer-status positive" id="ccResilienceDelta">Nominal operation</div>
           </div>
 
-          <div class="monitor-kpi-item">
-            <div class="kpi-header-row">
+          <div class="command-kpi-card">
+            <div class="kpi-meta-row">
               <span class="kpi-icon">⚙️</span>
-              <span>Machines</span>
+              <span class="kpi-label">Active Stations</span>
             </div>
-            <div class="kpi-big-value" id="kpiMachines">6/6</div>
+            <div class="kpi-main-val" id="ccActiveStations">6<span class="kpi-sub-unit">/6</span></div>
+            <div class="kpi-footer-status" id="ccStationsStatus">0 in failure</div>
           </div>
 
-          <div class="monitor-kpi-item">
-            <div class="kpi-header-row">
-              <span class="kpi-icon">⚡</span>
-              <span>Energy</span>
+          <div class="command-kpi-card">
+            <div class="kpi-meta-row">
+              <span class="kpi-icon">📦</span>
+              <span class="kpi-label">Production Orders</span>
             </div>
-            <div class="kpi-big-value" id="kpiEnergy">980 kWh</div>
+            <div class="kpi-main-val" id="ccActiveOrders">4</div>
+            <div class="kpi-footer-status" id="ccOrdersStatus">4 In Progress</div>
+          </div>
+
+          <div class="command-kpi-card">
+            <div class="kpi-meta-row">
+              <span class="kpi-icon">⏱️</span>
+              <span class="kpi-label">Jobs at Risk / Late</span>
+            </div>
+            <div class="kpi-main-val" id="ccJobsRisk">0<span class="kpi-sub-unit">/0</span></div>
+            <div class="kpi-footer-status positive" id="ccJobsRiskStatus">All deadlines secured</div>
+          </div>
+
+          <div class="command-kpi-card">
+            <div class="kpi-meta-row">
+              <span class="kpi-icon">⚡</span>
+              <span class="kpi-label">Energy Rate</span>
+            </div>
+            <div class="kpi-main-val" id="ccEnergy">980<span class="kpi-sub-unit">kWh</span></div>
+            <div class="kpi-footer-status" id="ccEnergyStatus">Optimal load factor</div>
+          </div>
+
+          <div class="command-kpi-card">
+            <div class="kpi-meta-row">
+              <span class="kpi-icon">📊</span>
+              <span class="kpi-label">Overall Utilization</span>
+            </div>
+            <div class="kpi-main-val" id="ccUtilization">84.5<span class="kpi-sub-unit">%</span></div>
+            <div class="kpi-footer-status" id="ccUtilizationStatus">Balanced across cells</div>
           </div>
         </div>
 
-        <!-- Gantt Timeline Chart -->
-        <div class="gantt-wrapper">
-          <div class="gantt-grid" id="ganttGrid">
-            <!-- Machine tracks rendered dynamically -->
+        <!-- Attention Required Section -->
+        <div class="attention-section">
+          <div class="attention-header">
+            <h3 class="attention-title">Attention Required</h3>
+            <span class="attention-badge" id="attentionCountBadge">0 alerts</span>
           </div>
-          <div class="gantt-ruler" id="ganttRuler">
-            <!-- Time labels rendered dynamically -->
+          <div class="attention-list" id="attentionList">
+            <!-- Dynamically populated clickable alerts -->
           </div>
         </div>
 
@@ -176,130 +178,590 @@
   </section>
 
 
-  <!-- ═══ SCREEN 5: DISRUPTION STATE ═══ -->
+  <!-- ═══ MODULE 2: PRODUCTION WORKSPACE ═══ -->
+  <section class="section-container screen-production" id="production">
+    <div class="section-label">Production Workspace</div>
+    <h2 class="section-headline">Autonomous Work orders &amp; Capacity.</h2>
+    <p class="section-sub">End-to-end operational visibility: production orders, work-in-progress jobs, Gantt timeline, and machine capacity.</p>
+
+    <!-- Sub-tab Bar -->
+    <div class="subnav-bar">
+      <button class="subnav-btn active" onclick="switchProductionTab('orders')">Production Orders</button>
+      <button class="subnav-btn" onclick="switchProductionTab('jobs')">Jobs &amp; Operations</button>
+      <button class="subnav-btn" onclick="switchProductionTab('gantt')">Production Schedule (Gantt)</button>
+      <button class="subnav-btn" onclick="switchProductionTab('capacity')">Capacity Matrix</button>
+    </div>
+
+    <!-- Tab A: Production Orders -->
+    <div class="production-tab-content active" id="tabContentOrders">
+      <div class="card-table-wrapper">
+        <div class="table-header-bar">
+          <span class="table-title">Active Production Orders</span>
+          <span class="table-meta" id="ordersTableMeta">4 Orders Tracked</span>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table" id="productionOrdersTable">
+            <thead>
+              <tr>
+                <th>Order ID</th>
+                <th>Customer / Product</th>
+                <th>Quantity</th>
+                <th>Priority</th>
+                <th>Deadline</th>
+                <th>Status</th>
+                <th>Progress</th>
+                <th>Risk</th>
+              </tr>
+            </thead>
+            <tbody id="ordersTableBody">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab B: Jobs & Operations -->
+    <div class="production-tab-content" id="tabContentJobs">
+      <div class="card-table-wrapper">
+        <div class="table-header-bar">
+          <span class="table-title">Scheduled Jobs &amp; Operations</span>
+          <div class="table-actions">
+            <input type="text" id="jobsSearchInput" class="table-search" placeholder="Filter jobs..." oninput="filterJobsTable()">
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table" id="productionJobsTable">
+            <thead>
+              <tr>
+                <th>Job ID</th>
+                <th>Order</th>
+                <th>Duration</th>
+                <th>Machine</th>
+                <th>Priority</th>
+                <th>Deadline</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="jobsTableBody">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab C: Production Gantt Timeline -->
+    <div class="production-tab-content" id="tabContentGantt">
+      <div class="card-table-wrapper">
+        <div class="table-header-bar">
+          <span class="table-title">Interactive Production Gantt</span>
+          <div class="gantt-filter-controls">
+            <select id="ganttMachineFilter" class="gantt-select" onchange="applyGanttFilters()">
+              <option value="ALL">All Stations (M1–M6)</option>
+              <option value="M1">M1 (CNC-01)</option>
+              <option value="M2">M2 (ROBOT-X5)</option>
+              <option value="M3">M3 (PRESS-G2)</option>
+              <option value="M4">M4 (CONVEYOR-A1)</option>
+              <option value="M5">M5 (LATHE-P3)</option>
+              <option value="M6">M6 (ASSEMBLY-F4)</option>
+            </select>
+            <select id="ganttStatusFilter" class="gantt-select" onchange="applyGanttFilters()">
+              <option value="ALL">All Statuses</option>
+              <option value="REASSIGNED">Reassigned Only</option>
+              <option value="AT_RISK">At Risk Only</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="gantt-wrapper">
+          <div class="gantt-grid" id="ganttGrid">
+            <!-- Machine tracks rendered dynamically -->
+          </div>
+          <div class="gantt-ruler" id="ganttRuler">
+            <!-- Time labels rendered dynamically -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab D: Machine Capacity Matrix -->
+    <div class="production-tab-content" id="tabContentCapacity">
+      <div class="card-table-wrapper">
+        <div class="table-header-bar">
+          <span class="table-title">Shop Floor Machine Capacity Matrix</span>
+          <span class="table-meta">Standard 8-Hour Shift (480 min)</span>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table" id="capacityMatrixTable">
+            <thead>
+              <tr>
+                <th>Machine</th>
+                <th>Available Capacity</th>
+                <th>Scheduled Load</th>
+                <th>Utilization</th>
+                <th>Remaining Capacity</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="capacityTableBody">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+
+  <!-- ═══ MODULE 3: SHOP FLOOR (EXPANDED FACTORY EXPLORER) ═══ -->
+  <section class="screen-explorer" id="explorer">
+    <div class="terminal-enclosure">
+      <!-- Hex Screws -->
+      <div class="terminal-screw screw-tl"></div>
+      <div class="terminal-screw screw-tr"></div>
+      <div class="terminal-screw screw-bl"></div>
+      <div class="terminal-screw screw-br"></div>
+
+      <div class="terminal-screen">
+        <div class="terminal-header">
+          <div class="terminal-title">
+            <span>✦</span>
+            <span>FLOWFORGE Shop Floor Fleet</span>
+          </div>
+          <div class="terminal-legend">
+            <span class="legend-dot running"></span> <span>RUNNING</span>
+            <span class="legend-dot maintenance"></span> <span>MAINT</span>
+            <span class="legend-dot stopped"></span> <span>FAILED</span>
+          </div>
+        </div>
+
+        <h2 class="explorer-title">Your factory.</h2>
+        <p class="explorer-sub">Click any workstation card to open real-time telemetry, queue, and simulated disruption controls.</p>
+
+        <!-- 6 Machines Grid -->
+        <div class="machines-grid" id="machinesGrid">
+          <!-- Populated dynamically via app.js -->
+        </div>
+      </div>
+
+      <!-- Industrial Hardware Rocker Switch -->
+      <div class="terminal-footer-controls">
+        <div class="rocker-switch" title="Toggle Terminal Hardware" onclick="toggleTerminalPower()"></div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ═══ MODULE 4: INVENTORY MODULE ═══ -->
+  <section class="section-container screen-inventory" id="inventory">
+    <div class="section-label">Material Readiness</div>
+    <h2 class="section-headline">Manufacturing Inventory &amp; BOM.</h2>
+    <p class="section-sub">Lightweight production material tracking ensuring parts are staged before machine spindle start.</p>
+
+    <!-- Inventory Summary Cards -->
+    <div class="inventory-summary-grid">
+      <div class="inv-summary-card">
+        <span class="inv-label">Tracked Part SKUs</span>
+        <span class="inv-val" id="invTotalParts">5</span>
+      </div>
+      <div class="inv-summary-card">
+        <span class="inv-label">Stock Units Available</span>
+        <span class="inv-val" id="invAvailableUnits">2,100</span>
+      </div>
+      <div class="inv-summary-card">
+        <span class="inv-label">Reserved for Active Orders</span>
+        <span class="inv-val" id="invReservedUnits">620</span>
+      </div>
+      <div class="inv-summary-card">
+        <span class="inv-label">Items at Reorder Threshold</span>
+        <span class="inv-val warn" id="invAtRiskCount">0</span>
+      </div>
+    </div>
+
+    <!-- Inventory at Risk Callout -->
+    <div class="inventory-risk-callout" id="inventoryRiskCallout">
+      <div class="risk-callout-icon">⚠️</div>
+      <div class="risk-callout-content">
+        <strong id="inventoryRiskTitle">Inventory Nominal</strong>
+        <p id="inventoryRiskText">All bill-of-materials components are adequately buffered for current production demand.</p>
+      </div>
+    </div>
+
+    <!-- Inventory Table -->
+    <div class="card-table-wrapper">
+      <div class="table-responsive">
+        <table class="data-table" id="inventoryTable">
+          <thead>
+            <tr>
+              <th>Part ID</th>
+              <th>Part Name</th>
+              <th>Available Qty</th>
+              <th>Reserved Qty</th>
+              <th>Incoming Qty</th>
+              <th>Reorder Level</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="inventoryTableBody">
+            <!-- Rendered dynamically -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ═══ MODULE 5: MAINTENANCE MODULE ═══ -->
+  <section class="section-container screen-maintenance" id="maintenance">
+    <div class="section-label">Asset Health &amp; Reliability</div>
+    <h2 class="section-headline">Machine Maintenance &amp; Uptime.</h2>
+    <p class="section-sub">Continuous health scoring and planned maintenance windows seamlessly integrated into the schedule optimizer.</p>
+
+    <!-- Maintenance Overview Grid -->
+    <div class="maintenance-kpi-grid">
+      <div class="maint-kpi-card">
+        <span class="maint-label">Average Fleet Health</span>
+        <span class="maint-val" id="maintAvgHealth">92%</span>
+      </div>
+      <div class="maint-kpi-card">
+        <span class="maint-label">Active Maintenance Tickets</span>
+        <span class="maint-val" id="maintActiveTickets">0</span>
+      </div>
+      <div class="maint-kpi-card">
+        <span class="maint-label">Upcoming Service Windows</span>
+        <span class="maint-val" id="maintUpcomingWindows">2</span>
+      </div>
+      <div class="maint-kpi-card">
+        <span class="maint-label">Today's Fleet Downtime</span>
+        <span class="maint-val" id="maintTotalDowntime">0 min</span>
+      </div>
+    </div>
+
+    <!-- Maintenance Table -->
+    <div class="card-table-wrapper">
+      <div class="table-responsive">
+        <table class="data-table" id="maintenanceTable">
+          <thead>
+            <tr>
+              <th>Machine</th>
+              <th>Health Score</th>
+              <th>Last Serviced</th>
+              <th>Next Maintenance</th>
+              <th>Today's Runtime</th>
+              <th>Downtime</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="maintenanceTableBody">
+            <!-- Rendered dynamically -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ═══ MODULE 6: ANALYTICS MODULE ═══ -->
+  <section class="section-container screen-analytics" id="analytics">
+    <div class="section-label">Operations Performance</div>
+    <h2 class="section-headline">Throughput, Efficiency &amp; Recovery.</h2>
+    <p class="section-sub">Auditable comparison metrics tracking autonomous recovery efficiency against disruptive events.</p>
+
+    <!-- 3-Phase Comparison Cards: Baseline vs Disrupted vs Autonomous Recovery -->
+    <div class="analytics-phase-card">
+      <div class="phase-header-row">
+        <span class="phase-title">Autonomous Recovery Lifecycle Comparison</span>
+        <span class="phase-badge">Validated Engine Telemetry</span>
+      </div>
+
+      <div class="phase-columns-grid">
+        <!-- Makespan -->
+        <div class="phase-metric-box">
+          <div class="phase-metric-label">Production Makespan</div>
+          <div class="phase-flow-row">
+            <span class="flow-step" id="anaMakespanBase">520 m</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-step disrupted" id="anaMakespanDis">590 m</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-step recovery" id="anaMakespanRec">445 m</span>
+          </div>
+          <div class="phase-delta-note" id="anaMakespanDelta">-75 min improved via GA re-optimization</div>
+        </div>
+
+        <!-- Late Jobs -->
+        <div class="phase-metric-box">
+          <div class="phase-metric-label">Late Deliveries</div>
+          <div class="phase-flow-row">
+            <span class="flow-step" id="anaLateBase">4</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-step disrupted" id="anaLateDis">7</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-step recovery" id="anaLateRec">0</span>
+          </div>
+          <div class="phase-delta-note" id="anaLateDelta">Zero late orders guaranteed</div>
+        </div>
+
+        <!-- Energy -->
+        <div class="phase-metric-box">
+          <div class="phase-metric-label">Energy Consumption</div>
+          <div class="phase-flow-row">
+            <span class="flow-step" id="anaEnergyBase">1,120 kWh</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-step disrupted" id="anaEnergyDis">1,180 kWh</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-step recovery" id="anaEnergyRec">980 kWh</span>
+          </div>
+          <div class="phase-delta-note" id="anaEnergyDelta">-140 kWh power load conservation</div>
+        </div>
+
+        <!-- Resilience Score -->
+        <div class="phase-metric-box">
+          <div class="phase-metric-label">Resilience Score</div>
+          <div class="phase-flow-row">
+            <span class="flow-step" id="anaResBase">87</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-step disrupted" id="anaResDis">54</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-step recovery" id="anaResRec">81</span>
+          </div>
+          <div class="phase-delta-note" id="anaResDelta">+27 points restored automatically</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ═══ MODULE 7: AI OPERATIONS COPILOT ═══ -->
+  <section class="section-container screen-copilot" id="copilot">
+    <div class="section-label">Engineering Operations Intelligence</div>
+    <h2 class="section-headline">AI Operations Copilot.</h2>
+    <p class="section-sub">Natural-language diagnostics and root-cause explanations grounded strictly in live factory state. The deterministic optimizer decides; Claude explains.</p>
+
+    <div class="copilot-console">
+      <!-- Preset Prompt Suggestions -->
+      <div class="copilot-presets-row">
+        <span class="copilot-preset-label">Suggested Inquiries:</span>
+        <button class="copilot-chip" onclick="askCopilotPreset('Why is production at risk?')">Why is production at risk?</button>
+        <button class="copilot-chip" onclick="askCopilotPreset('Which machine is currently the bottleneck?')">Which machine is bottleneck?</button>
+        <button class="copilot-chip" onclick="askCopilotPreset('What happens if M3 fails?')">What happens if M3 fails?</button>
+        <button class="copilot-chip" onclick="askCopilotPreset('Why was J7 moved to M5?')">Why was J7 moved to M5?</button>
+        <button class="copilot-chip" onclick="askCopilotPreset('Which jobs are likely to be late?')">Which jobs likely late?</button>
+        <button class="copilot-chip" onclick="askCopilotPreset('How much energy did recovery save?')">Energy saved by recovery?</button>
+        <button class="copilot-chip" onclick="askCopilotPreset('Summarize today factory performance.')">Summarize factory status</button>
+      </div>
+
+      <!-- Question Input Bar -->
+      <div class="copilot-input-bar">
+        <input type="text" id="copilotQueryInput" class="copilot-input" placeholder="Ask Copilot regarding schedules, bottleneck machines, order delays, or recovery rationale..." onkeydown="if(event.key==='Enter') submitCopilotQuery()">
+        <button class="btn-primary" id="btnAskCopilot" onclick="submitCopilotQuery()">Ask Copilot</button>
+      </div>
+
+      <!-- Copilot Response Panel -->
+      <div class="copilot-response-card" id="copilotResponseCard">
+        <div class="copilot-response-header">
+          <div class="copilot-model-indicator">
+            <span class="copilot-spark">⚡</span>
+            <span id="copilotProviderName">Claude 3.5 Sonnet / Operations Engine</span>
+          </div>
+          <span class="copilot-timestamp" id="copilotTimestamp">Ready for query</span>
+        </div>
+
+        <div class="copilot-direct-answer" id="copilotDirectAnswer">
+          FlowForge AI Copilot is online and synchronized with 6 workstations, 4 production orders, and the active genetic scheduling optimizer. Select a query or type an inquiry above.
+        </div>
+
+        <!-- Metric Badges Row -->
+        <div class="copilot-metrics-strip" id="copilotMetricsStrip" style="display:none;">
+          <!-- Dynamically populated metric pills -->
+        </div>
+
+        <!-- Explanation Body -->
+        <div class="copilot-explanation-body" id="copilotExplanationBody">
+          Ready to diagnose machine capacity, bottleneck propagation, and schedule reassignments.
+        </div>
+
+        <!-- Action Items & Affected Entities -->
+        <div class="copilot-footer-row" id="copilotFooterRow" style="display:none;">
+          <div class="copilot-entities-wrap">
+            <span class="footer-label">Affected Entities:</span>
+            <div class="copilot-entities-list" id="copilotEntitiesList"></div>
+          </div>
+          <div class="copilot-actions-wrap">
+            <span class="footer-label">Recommended Investigation:</span>
+            <ul class="copilot-actions-list" id="copilotActionsList"></ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ═══ MODULE 8: SCENARIOS & DISRUPTION SIMULATOR ═══ -->
   <section class="section-container screen-disruption" id="disruption">
-    <div class="section-label">Real-Time Simulation</div>
+    <div class="section-label">Autonomous Resilience Engine</div>
     <h2 class="section-headline">When conditions change.</h2>
+    <p class="section-sub">Inject real factory disruptions to verify multi-objective optimization, automated schedule re-routing, and deadline protection in real-time.</p>
 
     <!-- Interactive Simulator Controls -->
     <div class="scenario-controls-bar">
       <button class="btn-sim danger" id="btnFailM3" onclick="triggerMachineFailure('M3')">🔴 Fail M3 (Press-G2)</button>
       <button class="btn-sim" id="btnUrgent" onclick="triggerUrgentJob()">⚡ Urgent Order (J99)</button>
       <button class="btn-sim" id="btnDeadline" onclick="triggerDeadlineShift()">⏰ Deadline Shift</button>
+      <button class="btn-sim" id="btnCancel" onclick="triggerJobCancellation()">❌ Cancel Job (J12)</button>
+      <button class="btn-sim" id="btnDowntime" onclick="triggerPlannedDowntime('M4')">🛑 Planned Downtime (M4)</button>
+      <button class="btn-sim danger" id="btnMultiFail" onclick="triggerMultipleFailures()">⚠️ Dual Failure (M1 + M3)</button>
       <button class="btn-sim success" id="btnRecoverM3" onclick="triggerMachineRecovery('M3')">🔧 Restore M3</button>
       <button class="btn-sim" id="btnReset" onclick="resetFactoryState()">↻ Reset Factory</button>
     </div>
 
-    <!-- Disruption Impact Banner -->
-    <div class="disruption-banner" id="disruptionBanner">
-      <div class="disruption-banner-left">
-        <span class="disruption-badge" id="disruptionBadge">M3 OFFLINE</span>
-        <div class="disruption-title" id="disruptionTitle">Production disruption detected</div>
-      </div>
-      <div class="disruption-impact-items">
-        <div class="impact-stat">
-          <span class="impact-stat-val" id="impactJobsAffected">4</span>
-          <span class="impact-stat-lbl">jobs affected</span>
+    <!-- Prominent "WHAT CHANGED?" Disruption Impact Panel -->
+    <div class="what-changed-panel" id="whatChangedPanel">
+      <div class="what-changed-header">
+        <div class="wc-header-left">
+          <span class="wc-badge" id="wcBadge">M3 OFFLINE</span>
+          <div>
+            <h3 class="wc-title" id="wcTitle">Production disruption detected</h3>
+            <span class="wc-time" id="wcTimestamp">10:42 — Automatic Replanning Triggered</span>
+          </div>
         </div>
-        <div class="impact-stat">
-          <span class="impact-stat-val" id="impactDeadlineRisks">2</span>
-          <span class="impact-stat-lbl">deadline risks</span>
-        </div>
-        <div class="impact-stat">
-          <span class="impact-stat-val" id="impactDelay">+95 min</span>
-          <span class="impact-stat-lbl">delay without recovery</span>
-        </div>
-      </div>
-    </div>
-  </section>
-
-
-  <!-- ═══ SCREEN 6: RECOVERY ("Back on track.") ═══ -->
-  <section class="section-container screen-recovery" id="recovery">
-    <div class="section-label">Autonomous Recovery</div>
-    <h2 class="section-headline">Back on track.</h2>
-
-    <!-- Comparison Metrics Grid -->
-    <div class="comparison-grid">
-      <!-- Makespan -->
-      <div class="comparison-card">
-        <div class="comparison-card-label">Makespan</div>
-        <div class="comparison-card-transition">
-          <span class="comparison-card-old" id="compMakespanOld">520</span>
-          <span class="comparison-card-arrow">→</span>
-          <span class="comparison-card-new" id="compMakespanNew">445</span>
-        </div>
-        <div class="comparison-card-delta" id="compMakespanDelta">-75 min improved</div>
+        <button class="btn-why" onclick="openExplanationFromDisruption()">Why? ➔</button>
       </div>
 
-      <!-- Late Jobs -->
-      <div class="comparison-card">
-        <div class="comparison-card-label">Late Jobs</div>
-        <div class="comparison-card-transition">
-          <span class="comparison-card-old" id="compLateOld">4</span>
-          <span class="comparison-card-arrow">→</span>
-          <span class="comparison-card-new" id="compLateNew">0</span>
+      <div class="wc-body-grid">
+        <div class="wc-column">
+          <span class="wc-col-label">IMPACT DETECTED</span>
+          <ul class="wc-list" id="wcImpactList">
+            <li>3 scheduled operations affected</li>
+            <li>1 delivery deadline at critical risk</li>
+            <li>18% stamping capacity lost</li>
+          </ul>
         </div>
-        <div class="comparison-card-delta" id="compLateDelta">Zero late deliveries</div>
-      </div>
 
-      <!-- Energy -->
-      <div class="comparison-card">
-        <div class="comparison-card-label">Energy</div>
-        <div class="comparison-card-transition">
-          <span class="comparison-card-old" id="compEnergyOld">1120</span>
-          <span class="comparison-card-arrow">→</span>
-          <span class="comparison-card-new" id="compEnergyNew">980</span>
+        <div class="wc-column">
+          <span class="wc-col-label">FLOWFORGE AUTONOMOUS RESPONSE</span>
+          <div class="wc-reassignments" id="wcResponseList">
+            <span class="reassign-pill">J7 ➔ M5 (LATHE-P3)</span>
+            <span class="reassign-pill">J11 ➔ M4 (CONVEYOR-A1)</span>
+            <span class="reassign-pill">J15 ➔ M1 (CNC-01)</span>
+          </div>
         </div>
-        <div class="comparison-card-delta" id="compEnergyDelta">-140 kWh saved</div>
-      </div>
 
-      <!-- Resilience -->
-      <div class="comparison-card">
-        <div class="comparison-card-label">Resilience</div>
-        <div class="comparison-card-transition">
-          <span class="comparison-card-old" id="compResilienceOld">54</span>
-          <span class="comparison-card-arrow">→</span>
-          <span class="comparison-card-new" id="compResilienceNew">81</span>
+        <div class="wc-column">
+          <span class="wc-col-label">NET RECOVERY OUTCOME</span>
+          <div class="wc-outcomes">
+            <div class="wc-outcome-item">
+              <span class="lbl">Makespan:</span>
+              <span class="val positive" id="wcMakespanDelta">-32 min</span>
+            </div>
+            <div class="wc-outcome-item">
+              <span class="lbl">Late Deliveries:</span>
+              <span class="val positive" id="wcLateDelta">0 late</span>
+            </div>
+            <div class="wc-outcome-item">
+              <span class="lbl">Energy Conserved:</span>
+              <span class="val" id="wcEnergyDelta">+2.8%</span>
+            </div>
+            <div class="wc-outcome-item">
+              <span class="lbl">Resilience Score:</span>
+              <span class="val positive" id="wcResilienceDelta">54 ➔ 81</span>
+            </div>
+          </div>
         </div>
-        <div class="comparison-card-delta" id="compResilienceDelta">+27 points recovered</div>
       </div>
     </div>
   </section>
 
 
-  <!-- ═══ SCREEN 7: DECISION REPORT (ENGINEERING EXPLANATION) ═══ -->
+  <!-- ═══ MODULE 9: HISTORY & DECISION REPORTS ═══ -->
   <section class="section-container screen-decision" id="decision">
-    <div class="section-label">Engineering Transparency</div>
-    
-    <div class="report-card">
+    <div class="section-label">Audit Trail &amp; Transparency</div>
+    <h2 class="section-headline">Historical Decisions &amp; Explanations.</h2>
+    <p class="section-sub">Permanent record of factory disruptions, optimizer reassignments, and engineering decision reports.</p>
+
+    <!-- Disruption History Audit Table -->
+    <div class="card-table-wrapper" style="margin-bottom: 40px;">
+      <div class="table-header-bar">
+        <span class="table-title">Autonomous Event Audit Trail</span>
+        <span class="table-meta">Click any row to inspect full Decision Report</span>
+      </div>
+      <div class="table-responsive">
+        <table class="data-table" id="historyAuditTable">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Disruption Event</th>
+              <th>Affected Stations</th>
+              <th>Jobs Reassigned</th>
+              <th>Makespan Transition</th>
+              <th>Resilience Delta</th>
+              <th>Late Deliveries</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="historyTableBody">
+            <!-- Dynamically populated from /history -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- FlowForge Decision Report Card -->
+    <div class="report-card" id="decisionReportCard">
       <div class="report-header">
-        <h3 class="report-title" id="reportTitle">Why was J7 moved?</h3>
-        <span class="report-badge">AI-generated explanation</span>
+        <div>
+          <span class="report-kicker">FLOWFORGE ENGINEERING DECISION REPORT</span>
+          <h3 class="report-title" id="reportTitle">Autonomous Workload Reroute: J7 Reassigned to M5</h3>
+        </div>
+        <span class="report-badge" id="reportBadge">Verified Feasible Plan</span>
       </div>
 
       <!-- Visual Flow: M3 -> J7 -> M5 -->
       <div class="report-flow">
         <div class="flow-node offline">
           <span class="flow-node-title" id="flowSourceMachine">M3</span>
-          <span class="flow-node-sub">Offline Station</span>
+          <span class="flow-node-sub" id="flowSourceDesc">Offline Station</span>
         </div>
-        <span class="flow-arrow">↓</span>
+        <span class="flow-arrow">➔</span>
         <div class="flow-node">
           <span class="flow-node-title" id="flowJobId">J7</span>
           <span class="flow-node-sub" id="flowJobName">Exhaust Manifold</span>
         </div>
-        <span class="flow-arrow">↓</span>
+        <span class="flow-arrow">➔</span>
         <div class="flow-node destination">
           <span class="flow-node-title" id="flowTargetMachine">M5</span>
-          <span class="flow-node-sub">Available Station</span>
+          <span class="flow-node-sub" id="flowTargetDesc">Available Headroom</span>
         </div>
       </div>
 
-      <!-- Engineering Rationale -->
-      <p class="report-explanation-text" id="reportText">
-        M3 became unavailable. M5 had sufficient capacity to protect the production deadline while increasing energy consumption by only 3%.
-      </p>
+      <!-- Structured Engineering Breakdown -->
+      <div class="report-grid-structured">
+        <div class="report-cell">
+          <div class="report-cell-label">EVENT</div>
+          <div class="report-cell-text" id="reportCellEvent">Station M3 became unavailable due to mechanical failure.</div>
+        </div>
+        <div class="report-cell">
+          <div class="report-cell-label">IMPACT</div>
+          <div class="report-cell-text" id="reportCellImpact">3 scheduled jobs were affected with immediate deadline vulnerability.</div>
+        </div>
+        <div class="report-cell">
+          <div class="report-cell-label">DECISION</div>
+          <div class="report-cell-text" id="reportCellDecision">J7 was reassigned to M5; remaining operations distributed to M4 and M1.</div>
+        </div>
+        <div class="report-cell">
+          <div class="report-cell-label">REASON</div>
+          <div class="report-cell-text" id="reportCellReason">M5 had sufficient remaining capacity and protected the J7 delivery deadline.</div>
+        </div>
+        <div class="report-cell">
+          <div class="report-cell-label">TRADE-OFF</div>
+          <div class="report-cell-text" id="reportCellTradeoff">Energy consumption increased by 3% across alternative station routing.</div>
+        </div>
+        <div class="report-cell">
+          <div class="report-cell-label">OUTCOME</div>
+          <div class="report-cell-text" id="reportCellOutcome">Customer deadline protected. Zero late jobs introduced to production.</div>
+        </div>
+      </div>
 
       <!-- Key Impact Metrics -->
       <div class="report-metrics-row">
@@ -312,16 +774,71 @@
           <div class="val" id="metricEnergyImpact">+3%</div>
         </div>
         <div class="report-metric-box">
-          <div class="label">M5 Capacity Utilization</div>
+          <div class="label">M5 Station Utilization</div>
           <div class="val" id="metricCapacityUtilization">91%</div>
         </div>
       </div>
     </div>
   </section>
 
+
+  <!-- ═══ MACHINE DETAIL MODAL (SHOP FLOOR TELEMETRY & CONTROLS) ═══ -->
+  <div class="modal-backdrop" id="machineModalBackdrop" onclick="closeMachineModal(event)">
+    <div class="modal-card" id="machineModalCard" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <span class="modal-pretitle" id="modalMachinePretitle">WORKSTATION TELEMETRY</span>
+          <h3 class="modal-title" id="modalMachineTitle">M1 — CNC-01</h3>
+        </div>
+        <button class="modal-close-btn" onclick="closeMachineModal()">×</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="modal-kpi-strip">
+          <div class="modal-kpi">
+            <span class="lbl">Status</span>
+            <span class="val status-pill" id="modalMachineStatus">RUNNING</span>
+          </div>
+          <div class="modal-kpi">
+            <span class="lbl">Utilization</span>
+            <span class="val" id="modalMachineUtil">82%</span>
+          </div>
+          <div class="modal-kpi">
+            <span class="lbl">Energy Rate</span>
+            <span class="val" id="modalMachineEnergy">15 kWh</span>
+          </div>
+          <div class="modal-kpi">
+            <span class="lbl">Today's Runtime</span>
+            <span class="val" id="modalMachineRuntime">5.4 hrs</span>
+          </div>
+        </div>
+
+        <div class="modal-section">
+          <h4 class="modal-sec-title">Currently Executing &amp; Station Queue</h4>
+          <div class="modal-queue-list" id="modalMachineQueue">
+            <!-- Queue items -->
+          </div>
+        </div>
+
+        <div class="modal-section">
+          <h4 class="modal-sec-title">Reliability &amp; Maintenance</h4>
+          <p class="modal-sec-desc" id="modalMachineMaintDesc">Station health is nominal (94%). Next scheduled preventive maintenance: In 4 days.</p>
+        </div>
+
+        <div class="modal-actions-bar">
+          <button class="btn-sim danger" id="modalBtnFail" onclick="modalTriggerFail()">Simulate Station Failure</button>
+          <button class="btn-sim" id="modalBtnMaint" onclick="modalTriggerMaint()">Schedule Maintenance Window</button>
+          <button class="btn-sim success" id="modalBtnRestore" onclick="modalTriggerRestore()">Restore / Clear Disruption</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
   <!-- Site Footer -->
   <footer class="site-footer">
-    <p><strong>FLOWFORGE AI</strong> — Autonomous Production Resilience &amp; Optimization</p>
+    <p><strong>FLOWFORGE AI</strong> — Autonomous Manufacturing Operations &amp; Resilience Platform</p>
+    <p class="footer-sub">When the factory changes, the production plan changes with it.</p>
   </footer>
 
   <!-- Hover Tooltip -->
@@ -332,7 +849,7 @@
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
 
   <!-- Application Logic -->
-  <script src="/static/app.js?v=6.0"></script>
+  <script src="/static/app.js?v=6.1"></script>
 
 </body>
 </html>

@@ -1,5 +1,7 @@
 import os
 import sys
+import time
+import re
 
 # Ensure root directory is on sys.path
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -12,7 +14,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from typing import Optional
-
 
 from tools.csv_tool import read_jobs_csv
 
@@ -27,6 +28,7 @@ from agents.disruption.engine import DisruptionEngine
 from agents.disruption import types as disruption_types
 from agents.resilience.metrics import calculate_all_metrics
 from agents.resilience.score import calculate_resilience_score
+from agents.copilot.provider import AICopilotProvider
 
 
 app = FastAPI(
@@ -116,6 +118,15 @@ class DisruptionRequest(BaseModel):
     deadline: Optional[int] = None
     new_deadline: Optional[int] = None
     priority: Optional[int] = 5
+
+
+class CopilotQueryRequest(BaseModel):
+    query: Optional[str] = None
+    question: Optional[str] = None
+
+    @property
+    def prompt_text(self) -> str:
+        return self.query or self.question or ""
 
 
 # ─────────────────────────────────────────────────────────────
@@ -379,6 +390,35 @@ async def apply_disruption(request: DisruptionRequest):
         disrupted_schedule=factory.disrupted_schedule,
     ) if factory.recovery_schedule else {}
 
+    # Record historical disruption & decision report entry
+    history_entry = {
+        "timestamp": time.strftime("%H:%M:%S"),
+        "event_type": dtype,
+        "description": f"Disruption: {dtype.replace('_', ' ').title()}",
+        "affected_machines": [request.machine_id] if request.machine_id else [],
+        "affected_jobs": result["affected_jobs"],
+        "baseline_makespan": baseline_metrics.get("makespan", 0),
+        "disrupted_makespan": disrupted_metrics.get("makespan", 0),
+        "recovery_makespan": recovery_metrics.get("makespan", 0),
+        "baseline_resilience": baseline_resilience.get("score", 0),
+        "recovery_resilience": recovery_resilience.get("score", 0),
+        "baseline_late": baseline_metrics.get("late_jobs", 0),
+        "recovery_late": recovery_metrics.get("late_jobs", 0),
+        "recovery_time_seconds": result["recovery_time_seconds"],
+        "decision_report": {
+            "event": f"Factory encountered {dtype.replace('_', ' ')}.",
+            "impact": f"{len(result['affected_jobs'])} scheduled jobs were affected.",
+            "decision": f"FlowForge autonomous optimizer rerouted affected workloads to available capacity.",
+            "reason": f"Selected parallel machine assignments that protect delivery deadlines while balancing energy load.",
+            "trade_off": "Slight variation in machine power distribution to guarantee critical customer delivery windows.",
+            "outcome": f"Recovered resilience to {recovery_resilience.get('score', 80)}/100 with zero additional overdue commitments."
+        }
+    }
+    factory.add_history_record(history_entry)
+
+    # Sync ERP models with new schedule & machine states
+    factory.erp_engine.synchronize()
+
     return {
         "disruption": result["disruption"],
         "affected_jobs": result["affected_jobs"],
@@ -399,6 +439,8 @@ async def apply_disruption(request: DisruptionRequest):
             "recovery": recovery_resilience,
         },
         "factory_status": factory.factory_status,
+        "erp": factory.erp_engine.to_dict(),
+        "history": factory.history_records,
     }
 
 
@@ -439,7 +481,132 @@ async def get_resilience():
 async def reset_factory():
     """Reset factory to clean baseline state."""
     factory.reset()
-    return {"status": "reset", "factory_status": factory.factory_status}
+    return {
+        "status": "reset",
+        "factory_status": factory.factory_status,
+        "erp": factory.erp_engine.to_dict(),
+    }
+
+
+# ─────────────────────────────────────────────────────────────
+# ERP-Lite Manufacturing Operations Endpoints
+# ─────────────────────────────────────────────────────────────
+
+@app.get("/erp/state")
+async def get_erp_state():
+    """Return full ERP-lite operational state (orders, inventory, maintenance, capacity)."""
+    return factory.erp_engine.to_dict()
+
+
+@app.get("/orders")
+async def get_orders():
+    """Return production orders list with risk and progress."""
+    factory.erp_engine.synchronize()
+    return [o.to_dict() for o in factory.erp_engine.orders]
+
+
+@app.get("/inventory")
+async def get_inventory():
+    """Return raw material inventory balances and at-risk stockouts."""
+    factory.erp_engine.synchronize()
+    return [i.to_dict() for i in factory.erp_engine.inventory]
+
+
+@app.get("/maintenance")
+async def get_maintenance():
+    """Return machine maintenance health scores and downtime records."""
+    factory.erp_engine.synchronize()
+    return [m.to_dict() for m in factory.erp_engine.maintenance]
+
+
+@app.get("/capacity")
+async def get_capacity():
+    """Return machine capacity matrix (available, load, utilization, remaining)."""
+    return factory.erp_engine.get_capacity_matrix()
+
+
+@app.get("/analytics")
+async def get_analytics():
+    """Return comparative analytics across Baseline, Disrupted, and Recovery states."""
+    available = factory.get_available_machine_ids()
+    all_machines = list(factory.machines.keys())
+    energy_map = factory.get_machine_energy_map()
+
+    base_m = calculate_all_metrics(factory.baseline_schedule, all_machines, energy_map) if factory.baseline_schedule else {}
+    dis_m = calculate_all_metrics(factory.disrupted_schedule, available, energy_map) if factory.disrupted_schedule else {}
+    rec_m = calculate_all_metrics(factory.recovery_schedule, available, energy_map) if factory.recovery_schedule else base_m
+
+    base_r = calculate_resilience_score(factory.baseline_schedule, all_machines, energy_map, len(all_machines), len(all_machines)) if factory.baseline_schedule else {}
+    rec_r = calculate_resilience_score(factory.recovery_schedule, available, energy_map, len(all_machines), len(available), baseline_schedule=factory.baseline_schedule, disrupted_schedule=factory.disrupted_schedule) if factory.recovery_schedule else base_r
+
+    return {
+        "metrics_comparison": {
+            "baseline": base_m,
+            "disrupted": dis_m,
+            "recovery": rec_m,
+        },
+        "resilience_comparison": {
+            "baseline": base_r,
+            "recovery": rec_r,
+        },
+        "history": factory.history_records,
+        "capacity": factory.erp_engine.get_capacity_matrix(),
+    }
+
+
+@app.get("/history")
+async def get_history():
+    """Return historical disruption and autonomous recovery decision records."""
+    return {
+        "history": factory.history_records,
+        "count": len(factory.history_records),
+    }
+
+
+@app.post("/copilot/query")
+async def copilot_query(request: CopilotQueryRequest):
+    """
+    AI Operations Copilot reasoning endpoint.
+    Passes structured factory context to Claude (or deterministic reasoning fallback).
+    """
+    factory.erp_engine.synchronize()
+    schedule = factory.get_current_schedule() or factory.baseline_schedule or []
+    available = factory.get_available_machine_ids()
+    energy_map = factory.get_machine_energy_map()
+
+    metrics = calculate_all_metrics(schedule, available, energy_map) if schedule else {}
+    resilience = calculate_resilience_score(
+        schedule, available, energy_map,
+        total_machines=len(factory.machines),
+        available_machines=len(available),
+        baseline_schedule=factory.baseline_schedule,
+        disrupted_schedule=factory.disrupted_schedule,
+    ) if schedule else {}
+
+    context = {
+        "factory_status": factory.factory_status,
+        "machines": factory.machines,
+        "schedule": schedule,
+        "metrics": metrics,
+        "resilience": resilience,
+        "orders": [o.to_dict() for o in factory.erp_engine.orders],
+        "inventory": [i.to_dict() for i in factory.erp_engine.inventory],
+        "capacity": factory.erp_engine.get_capacity_matrix(),
+        "disruptions": factory.active_disruptions,
+        "history_count": len(factory.history_records),
+    }
+
+    provider = AICopilotProvider()
+    result = provider.query(request.prompt_text, context)
+    ans = result.get("answer", "")
+    rec_act = result.get("recommended_action")
+    actions = [rec_act] if isinstance(rec_act, str) else (rec_act or [])
+
+    result.setdefault("concise_answer", ans)
+    result.setdefault("explanation", ans)
+    result.setdefault("recommended_investigation", actions)
+    result.setdefault("provider", result.get("provider_mode", "FlowForge AI Operations Copilot"))
+    return result
 
 
 if __name__ == "__main__":

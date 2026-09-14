@@ -1,10 +1,10 @@
 /* ═════════════════════════════════════════════════════════════════════════
    FLOWFORGE — Core Frontend Controller
-   Exact UI Replica & Apple-Grade Frame-by-Frame Canvas Scroll Animation
+   Autonomous Manufacturing Operations & Resilience Platform
+   Apple-Grade Frame-by-Frame Canvas Scroll Animation + 9 ERP-Lite Modules
    ═════════════════════════════════════════════════════════════════════════ */
 
 // ── Frame Animation Configuration ──
-// Path to folder of numbered animation frames. Changing this path dynamically adapts.
 const FRAME_PATH = "/frames/";
 
 // ── Application State ──
@@ -23,10 +23,29 @@ const state = {
   selectedFile: null,
   isDisrupted: false,
 
+  // ERP-Lite Subsystem State
+  erp: {
+    orders: [],
+    inventory: [],
+    maintenance: [],
+    capacity: [],
+    attention: [],
+  },
+  analytics: null,
+  history: [],
+  activeProductionTab: "orders",
+  selectedMachineForModal: "M1",
+  ganttFilters: {
+    machine: "ALL",
+    status: "ALL",
+  },
+  latestDecisionReport: null,
+
   // Animation Engine State
   frames: [],
   images: [],
   totalFrames: 0,
+  currentFrameIndex: 0,
   isAnimationReady: false,
 };
 
@@ -40,14 +59,14 @@ function escapeHtml(str) {
     .replace(/'/g, "&#039;");
 }
 
-// Default static machine specs matching Reference Screen 3
+// Machine specs matching industrial hardware theme
 const MACHINE_SPECS = {
-  M1: { name: "CNC-01", type: "Milling Center", img: "/static/assets/machines/m1.jpg", defaultUtil: 82 },
-  M2: { name: "ROBOT-X5", type: "Robotic Cell", img: "/static/assets/machines/m2.jpg", defaultUtil: 96 },
-  M3: { name: "PRESS-G2", type: "Stamping Press", img: "/static/assets/machines/m3.jpg", defaultUtil: 88 },
-  M4: { name: "CONVEYOR-A1", type: "Automated Line", img: "/static/assets/machines/m4.jpg", defaultUtil: 75 },
-  M5: { name: "LATHE-P3", type: "Metal Turning", img: "/static/assets/machines/m5.jpg", defaultUtil: 0 },
-  M6: { name: "ASSEMBLY-F4", type: "Precision Workstation", img: "/static/assets/machines/m6.jpg", defaultUtil: 91 },
+  M1: { name: "CNC-01", type: "Milling Center", img: "/static/assets/machines/m1.jpg", defaultUtil: 82, power: 15.0 },
+  M2: { name: "ROBOT-X5", type: "Robotic Cell", img: "/static/assets/machines/m2.jpg", defaultUtil: 96, power: 22.0 },
+  M3: { name: "PRESS-G2", type: "Stamping Press", img: "/static/assets/machines/m3.jpg", defaultUtil: 88, power: 45.0 },
+  M4: { name: "CONVEYOR-A1", type: "Automated Line", img: "/static/assets/machines/m4.jpg", defaultUtil: 75, power: 8.5 },
+  M5: { name: "LATHE-P3", type: "Metal Turning", img: "/static/assets/machines/m5.jpg", defaultUtil: 45, power: 18.0 },
+  M6: { name: "ASSEMBLY-F4", type: "Precision Workstation", img: "/static/assets/machines/m6.jpg", defaultUtil: 91, power: 12.0 },
 };
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -72,7 +91,6 @@ async function initHeroCanvasAnimation() {
 
   const ctx = canvas.getContext("2d");
 
-  // Step 1: Automatically detect frame count and filenames without hardcoding
   const manifest = await detectFramesManifest(FRAME_PATH);
   state.frames = manifest.frames;
   state.totalFrames = manifest.totalFrames;
@@ -82,7 +100,6 @@ async function initHeroCanvasAnimation() {
     return;
   }
 
-  // Setup HiDPI Canvas dimensions to fit screen 100vw x 100vh
   function resizeCanvas() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const width = window.innerWidth;
@@ -100,150 +117,99 @@ async function initHeroCanvasAnimation() {
     renderCurrentFrame();
   }
 
-  window.addEventListener("resize", resizeCanvas);
-
   function renderCurrentFrame() {
-    let img = state.images[state.currentFrameIndex];
-    if (!img || !img.complete || img.naturalWidth === 0) {
-      // Robust fallback: search nearest loaded frame to prevent flicker or blank canvas
-      for (let delta = 1; delta < state.totalFrames; delta++) {
-        const prev = state.images[state.currentFrameIndex - delta];
-        if (prev && prev.complete && prev.naturalWidth > 0) {
-          img = prev;
-          break;
-        }
-        const next = state.images[state.currentFrameIndex + delta];
-        if (next && next.complete && next.naturalWidth > 0) {
-          img = next;
-          break;
-        }
-      }
-    }
+    const img = state.images[state.currentFrameIndex];
     if (!img || !img.complete || img.naturalWidth === 0) return;
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const logicalWidth = canvas.width / dpr;
-    const logicalHeight = canvas.height / dpr;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
 
-    // Cleaned frames allow clean 4px border margin for edge-to-edge fidelity
-    const cropX = 4;
-    const cropY = 4;
-    const srcW = Math.max(1, img.width - cropX * 2);
-    const srcH = Math.max(1, img.height - cropY * 2);
+    ctx.clearRect(0, 0, width, height);
 
-    const isPortrait = logicalWidth < logicalHeight;
-    const isMobile = logicalWidth < 768;
+    const imgAspect = img.naturalWidth / img.naturalHeight;
+    const screenAspect = width / height;
 
-    let ratio;
-    if (isPortrait || isMobile) {
-      // Responsive scale for mobile / portrait devices:
-      // Prevents 4x over-zooming so the machine terminal stays fully visible without cropping buttons/edges
-      const containRatio = Math.min(logicalWidth / srcW, logicalHeight / srcH);
-      const coverRatio = Math.max(logicalWidth / srcW, logicalHeight / srcH);
-      ratio = Math.min(coverRatio, containRatio * 1.32);
+    let drawW, drawH, drawX, drawY;
+
+    if (screenAspect > imgAspect) {
+      drawW = width;
+      drawH = width / imgAspect;
+      drawX = 0;
+      drawY = (height - drawH) / 2;
     } else {
-      // Landscape desktop / laptop screens: crisp full-bleed cover
-      ratio = Math.max(logicalWidth / srcW, logicalHeight / srcH);
+      drawH = height;
+      drawW = height * imgAspect;
+      drawX = (width - drawW) / 2;
+      drawY = 0;
     }
 
-    const drawWidth = srcW * ratio;
-    const drawHeight = srcH * ratio;
-    const drawX = (logicalWidth - drawWidth) / 2;
-
-    // Position machine with ample vertical clearance below hero text
-    let drawY = (logicalHeight - drawHeight) / 2;
-    if (isPortrait || isMobile) {
-      // On mobile / portrait, position machine gracefully in lower viewport area
-      drawY = Math.max(drawY, logicalHeight * 0.22);
-    } else {
-      // On desktop / laptop, bias downwards by ~36px so title & subtitle have generous clearance
-      drawY += Math.min(36, logicalHeight * 0.042);
-    }
-
-    // Fill seamless background matching hero studio gray to eliminate letterbox borders
-    ctx.fillStyle = "#e2e2e7";
-    ctx.fillRect(0, 0, logicalWidth, logicalHeight);
-    ctx.drawImage(img, cropX, cropY, srcW, srcH, drawX, drawY, drawWidth, drawHeight);
+    ctx.drawImage(img, drawX, drawY, drawW, drawH);
   }
 
-  // Step 2: Preload frames with progress reporting
-  state.images = new Array(state.totalFrames);
-  let loadedCount = 0;
+  window.addEventListener("resize", resizeCanvas);
 
-  const checkMotionPreference = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  loadAllFramesProgressively(state.frames, (loadedCount, total) => {
+    const pct = Math.round((loadedCount / total) * 100);
+    if (loaderText) loaderText.textContent = `Preloading ${pct}%`;
 
-  function onSingleFrameLoaded(idx) {
-    loadedCount++;
-    const progress = Math.round((loadedCount / state.totalFrames) * 100);
-    if (loaderText) loaderText.textContent = `Preloading ${progress}%`;
-
-    // Render first frame as soon as frame 0 arrives
-    if (idx === 0) {
+    if (loadedCount === 1) {
       resizeCanvas();
-      renderCurrentFrame();
     }
 
-    // Once all or a usable batch is loaded, activate GSAP scroll scrub
-    if (loadedCount >= state.totalFrames) {
-      if (loader) loader.classList.add("hidden");
+    if (loadedCount >= Math.min(24, total) && !state.isAnimationReady) {
       state.isAnimationReady = true;
-
-      if (!checkMotionPreference) {
-        setupGSAPScrollTrigger(canvas, renderCurrentFrame);
+      if (loader) {
+        loader.classList.add("fade-out");
+        setTimeout(() => loader.classList.add("hidden"), 400);
       }
+      setupGSAPScrollTrigger(canvas, renderCurrentFrame);
     }
-  }
+  });
 
-  // Preload all frames asynchronously
-  state.frames.forEach((frameUrl, idx) => {
+  resizeCanvas();
+}
+
+function loadAllFramesProgressively(frameUrls, onProgress) {
+  let loadedCount = 0;
+  const total = frameUrls.length;
+  state.images = new Array(total);
+
+  frameUrls.forEach((frameUrl, idx) => {
     const img = new Image();
     img.src = frameUrl;
     img.onload = () => {
       state.images[idx] = img;
-      onSingleFrameLoaded(idx);
+      loadedCount++;
+      onProgress(loadedCount, total);
     };
     img.onerror = () => {
-      // Fallback in case of missing frame
-      onSingleFrameLoaded(idx);
+      loadedCount++;
+      onProgress(loadedCount, total);
     };
   });
 }
 
-// Automatically detect frame list and count
 async function detectFramesManifest(basePath) {
   try {
-    // Attempt 1: Fetch dynamic manifest from API
     const res = await fetch("/api/frames-info");
     if (res.ok) {
       const data = await res.json();
       if (data.frames && data.frames.length > 0) {
-        return {
-          totalFrames: data.frames.length,
-          frames: data.frames,
-        };
+        return { totalFrames: data.frames.length, frames: data.frames };
       }
     }
-  } catch (e) {
-    // API not reached, try static manifest
-  }
+  } catch (e) {}
 
   try {
-    // Attempt 2: Fetch manifest.json directly from FRAME_PATH
     const res = await fetch(`${basePath}manifest.json`);
     if (res.ok) {
       const data = await res.json();
       if (data.frames && data.frames.length > 0) {
-        return {
-          totalFrames: data.frames.length,
-          frames: data.frames,
-        };
+        return { totalFrames: data.frames.length, frames: data.frames };
       }
     }
-  } catch (e) {
-    // Fallback to sequential probe
-  }
+  } catch (e) {}
 
-  // Attempt 3: Progressive discovery
   const frames = [];
   for (let i = 1; i <= 240; i++) {
     const pad = String(i).padStart(3, "0");
@@ -252,7 +218,6 @@ async function detectFramesManifest(basePath) {
   return { totalFrames: frames.length, frames };
 }
 
-// GSAP + ScrollTrigger Hero Pinning & Scrubbing
 function setupGSAPScrollTrigger(canvas, renderCallback) {
   if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") {
     console.warn("GSAP / ScrollTrigger not loaded");
@@ -292,13 +257,11 @@ function setupGSAPScrollTrigger(canvas, renderCallback) {
         requestRender();
       }
 
-      // Smoothly fade scroll indicator on scroll
       const indicator = document.getElementById("heroScrollIndicator");
       if (indicator) {
         indicator.style.opacity = Math.max(0, 1 - self.progress * 4);
       }
 
-      // Smoothly fade hero title & subtitle as machine expands on scroll
       const heroContent = document.getElementById("heroContent");
       if (heroContent) {
         const opacity = Math.max(0, 1 - self.progress * 2.2);
@@ -311,7 +274,7 @@ function setupGSAPScrollTrigger(canvas, renderCallback) {
 }
 
 // ═════════════════════════════════════════════════════════════════════════
-// 3. BACKEND DATA SYNCHRONIZATION & FLOWFORGE SCHEDULER
+// 3. BACKEND DATA SYNCHRONIZATION & ERP-LITE STATE
 // ═════════════════════════════════════════════════════════════════════════
 
 async function initFlowForgeEngine() {
@@ -326,31 +289,64 @@ async function initFlowForgeEngine() {
     state.baselineResilience = data.resilience;
     state.isDisrupted = false;
 
-    // Fetch full factory machine status
-    const stateRes = await fetch("/factory/state");
-    state.factory = await stateRes.json();
-
+    await refreshAllOperationalData();
     updateUI();
   } catch (err) {
     console.error("Initialization error:", err);
   }
 }
 
+async function refreshAllOperationalData() {
+  try {
+    const [stateRes, erpRes, anaRes, histRes] = await Promise.all([
+      fetch("/factory/state"),
+      fetch("/erp/state"),
+      fetch("/analytics"),
+      fetch("/history"),
+    ]);
+
+    if (stateRes.ok) state.factory = await stateRes.json();
+    if (erpRes.ok) {
+      const erpData = await erpRes.json();
+      state.erp = {
+        orders: erpData.orders || [],
+        inventory: erpData.inventory || [],
+        maintenance: erpData.maintenance || [],
+        capacity: erpData.capacity || [],
+        attention: erpData.attention_required || [],
+      };
+    }
+    if (anaRes.ok) state.analytics = await anaRes.json();
+    if (histRes.ok) {
+      const histData = await histRes.json();
+      state.history = histData.history || [];
+      if (state.history.length > 0) {
+        state.latestDecisionReport = state.history[0].decision_report;
+      }
+    }
+  } catch (err) {
+    console.error("Error refreshing operational telemetry:", err);
+  }
+}
+
 // ═════════════════════════════════════════════════════════════════════════
-// 4. UI RENDERERS (EXACT REFERENCE REPLICAS)
+// 4. UI RENDERERS (ALL 9 MODULES)
 // ═════════════════════════════════════════════════════════════════════════
 
 function updateUI() {
   updateNavStatus();
+  renderCommandCenter();
+  renderProductionModule();
   renderFactoryExplorer();
-  renderControlCenter();
-  renderGanttChart();
-  renderDisruptionBanner();
-  renderComparisonCards();
+  renderInventoryModule();
+  renderMaintenanceModule();
+  renderAnalyticsModule();
+  renderWhatChangedPanel();
+  renderHistoryAuditTrail();
   renderDecisionReport();
 }
 
-// Navigation status chip
+// Navigation Status Chip
 function updateNavStatus() {
   const chip = document.getElementById("navStatusChip");
   const txt = document.getElementById("navStatusText");
@@ -359,11 +355,11 @@ function updateNavStatus() {
   if (state.isDisrupted) {
     chip.classList.add("disrupted");
     txt.textContent = "DISRUPTED";
-    chip.title = "Factory Disruption Active — Click to Reset to Operational";
+    chip.title = "Factory Disruption Active — Click to Reset";
   } else {
     chip.classList.remove("disrupted");
     txt.textContent = "OPERATIONAL";
-    chip.title = "Factory Status: Operational — Click to explore Disruption Scenarios";
+    chip.title = "Factory Status: Nominal";
   }
 
   if (!chip.dataset.bound) {
@@ -379,129 +375,296 @@ function updateNavStatus() {
   }
 }
 
-// Screen 3: Factory Explorer Grid (Dynamic machines)
-function renderFactoryExplorer() {
-  const grid = document.getElementById("machinesGrid");
-  if (!grid) return;
-
-  const activeMachines = state.factory ? state.factory.machines : {};
-  let machineKeys = Object.keys(activeMachines);
-  if (!machineKeys.length) {
-    machineKeys = ["M1", "M2", "M3", "M4", "M5", "M6"];
-  }
-  machineKeys.sort();
-
-  let html = "";
-  machineKeys.forEach((id, idx) => {
-    const imgIndex = (idx % 6) + 1;
-    const fallbackImg = `/static/assets/machines/m${imgIndex}.jpg`;
-    const spec = MACHINE_SPECS[id] || { name: `Workstation ${id}`, type: "Machine Cell", img: fallbackImg, defaultUtil: 85 };
-    const liveMachine = activeMachines[id];
-    const isStopped = liveMachine ? liveMachine.status !== "available" : (id === "M5" && !state.isDisrupted);
-    let statusText = isStopped ? "STOPPED" : "RUNNING";
-    let statusClass = isStopped ? "stopped" : "running";
-
-    if (liveMachine && liveMachine.unavailable_periods && liveMachine.unavailable_periods.length > 0) {
-      const p = liveMachine.unavailable_periods[0];
-      statusText = `MAINT [${p[0]}-${p[1]}m]`;
-      statusClass = "maintenance";
-    }
-
-    // Dynamic utilization
-    let util = spec.defaultUtil;
-    if (state.baselineMetrics && state.baselineMetrics.machine_utilization && state.baselineMetrics.machine_utilization[id] !== undefined) {
-      util = Math.round(state.baselineMetrics.machine_utilization[id]);
-    } else if (isStopped) {
-      util = 0;
-    }
-
-    html += `
-      <div class="machine-card ${isStopped ? "stopped" : ""}" id="card_${id}" onclick="toggleMachine('${id}')" title="Click to simulate toggle">
-        <div class="machine-card-header">
-          <div>
-            <div class="machine-card-id">${id}</div>
-            <div class="machine-card-name">${spec.name}</div>
-            <div class="machine-card-status ${statusClass}">${statusText}</div>
-          </div>
-          <div class="machine-card-util">${util}%</div>
-        </div>
-        <div class="machine-card-image-wrap">
-          <img src="${spec.img}" alt="${spec.name}" class="machine-card-image" onerror="this.src='/static/assets/machines/m1.jpg'">
-        </div>
-      </div>
-    `;
-  });
-
-  grid.innerHTML = html;
-}
-
-// Screen 4: Control Center Greeting & Horizontal KPI Strip
-function renderControlCenter() {
+// ── MODULE 1: COMMAND CENTER ──
+function renderCommandCenter() {
   const greeting = document.getElementById("monitorGreeting");
-  const kpiRes = document.getElementById("kpiResilience");
-  const kpiMach = document.getElementById("kpiMachines");
-  const kpiEnergy = document.getElementById("kpiEnergy");
+  const liveBadge = document.getElementById("commandCenterLiveBadge");
+  const kpiRes = document.getElementById("ccResilience");
+  const kpiResDelta = document.getElementById("ccResilienceDelta");
+  const kpiStations = document.getElementById("ccActiveStations");
+  const kpiStationsStatus = document.getElementById("ccStationsStatus");
+  const kpiOrders = document.getElementById("ccActiveOrders");
+  const kpiOrdersStatus = document.getElementById("ccOrdersStatus");
+  const kpiJobsRisk = document.getElementById("ccJobsRisk");
+  const kpiJobsRiskStatus = document.getElementById("ccJobsRiskStatus");
+  const kpiEnergy = document.getElementById("ccEnergy");
+  const kpiUtil = document.getElementById("ccUtilization");
+
+  // Station counts
+  let totalStations = 6;
+  let activeStations = 6;
+  let failedStations = 0;
+  if (state.factory && state.factory.machines) {
+    const list = Object.values(state.factory.machines);
+    totalStations = list.length;
+    activeStations = list.filter((m) => m.status === "available").length;
+    failedStations = totalStations - activeStations;
+  } else if (state.isDisrupted) {
+    activeStations = 5;
+    failedStations = 1;
+  }
 
   if (greeting) {
     if (state.isDisrupted) {
-      greeting.innerHTML = `Attention needed. <strong>M3 Stamping Press is offline.</strong>`;
+      greeting.innerHTML = `Attention needed. <strong>M3 Stamping Press is offline.</strong> FlowForge replanned schedule.`;
     } else {
       greeting.innerHTML = `Good morning. Your factory is <strong>running smoothly.</strong>`;
     }
   }
 
-  // Active / Total machines count
-  let availableCount = 6;
-  let totalCount = 6;
-  if (state.factory && state.factory.machines) {
-    const vals = Object.values(state.factory.machines);
-    totalCount = vals.length;
-    availableCount = vals.filter((m) => m.status === "available").length;
-  } else if (state.isDisrupted) {
-    availableCount = 5;
+  if (liveBadge) {
+    liveBadge.textContent = state.isDisrupted ? "AUTONOMOUS RECOVERY" : "LIVE TELEMETRY";
+    liveBadge.style.background = state.isDisrupted ? "#fee2e2" : "#ecfdf5";
+    liveBadge.style.color = state.isDisrupted ? "#991b1b" : "#065f46";
   }
 
   // Resilience score
   const resilienceScore = state.isDisrupted
-    ? (state.recoveryResilience ? state.recoveryResilience.score : 54)
+    ? (state.recoveryResilience ? state.recoveryResilience.score : 81)
     : (state.baselineResilience ? state.baselineResilience.score : 87);
 
-  // Energy consumption
+  if (kpiRes) kpiRes.innerHTML = `${resilienceScore}<span class="kpi-sub-unit">/100</span>`;
+  if (kpiResDelta) {
+    if (state.isDisrupted) {
+      kpiResDelta.textContent = "Restored: 54 → 81 pts";
+      kpiResDelta.className = "kpi-footer-status positive";
+    } else {
+      kpiResDelta.textContent = "Nominal operation";
+      kpiResDelta.className = "kpi-footer-status positive";
+    }
+  }
+
+  if (kpiStations) kpiStations.innerHTML = `${activeStations}<span class="kpi-sub-unit">/${totalStations}</span>`;
+  if (kpiStationsStatus) {
+    kpiStationsStatus.textContent = failedStations > 0 ? `${failedStations} in failure` : "All stations healthy";
+    kpiStationsStatus.className = failedStations > 0 ? "kpi-footer-status danger" : "kpi-footer-status positive";
+  }
+
+  // Orders
+  const orders = state.erp.orders || [];
+  const activeOrdersCount = orders.length || 4;
+  const ordersAtRiskCount = orders.filter((o) => o.status === "At Risk" || o.risk_level === "High").length;
+  if (kpiOrders) kpiOrders.textContent = activeOrdersCount;
+  if (kpiOrdersStatus) {
+    kpiOrdersStatus.textContent = ordersAtRiskCount > 0 ? `${ordersAtRiskCount} order at risk` : `${activeOrdersCount} in progress`;
+    kpiOrdersStatus.className = ordersAtRiskCount > 0 ? "kpi-footer-status warning" : "kpi-footer-status";
+  }
+
+  // Jobs At Risk / Late
+  const lateJobsCount = state.isDisrupted
+    ? (state.recoveryMetrics ? state.recoveryMetrics.late_jobs : 0)
+    : (state.baselineMetrics ? state.baselineMetrics.late_jobs : 0);
+  const jobsRiskCount = state.isDisrupted ? 1 : 0;
+  if (kpiJobsRisk) kpiJobsRisk.innerHTML = `${jobsRiskCount}<span class="kpi-sub-unit">/${lateJobsCount}</span>`;
+  if (kpiJobsRiskStatus) {
+    kpiJobsRiskStatus.textContent = lateJobsCount === 0 ? "Zero late deliveries" : `${lateJobsCount} overdue`;
+    kpiJobsRiskStatus.className = lateJobsCount === 0 ? "kpi-footer-status positive" : "kpi-footer-status danger";
+  }
+
+  // Energy & Utilization
   const energyVal = state.isDisrupted
     ? (state.recoveryMetrics ? state.recoveryMetrics.energy_kwh : 980)
     : (state.baselineMetrics ? state.baselineMetrics.energy_kwh : 980);
+  if (kpiEnergy) kpiEnergy.innerHTML = `${Math.round(energyVal)}<span class="kpi-sub-unit">kWh</span>`;
 
-  if (kpiRes) animateNumber(kpiRes, resilienceScore);
-  if (kpiMach) kpiMach.textContent = `${availableCount}/${totalCount}`;
-  if (kpiEnergy) animateNumber(kpiEnergy, Math.round(energyVal), " kWh");
+  const utilVal = state.isDisrupted ? 88.2 : 84.5;
+  if (kpiUtil) kpiUtil.innerHTML = `${utilVal}<span class="kpi-sub-unit">%</span>`;
+
+  // Render Attention Required alerts
+  renderAttentionRequiredList();
 }
 
-// Screen 4: Large Elegant Gantt Chart (Reference Palette: Soft Blues, Greens, Ambers)
+function renderAttentionRequiredList() {
+  const container = document.getElementById("attentionList");
+  const countBadge = document.getElementById("attentionCountBadge");
+  if (!container) return;
+
+  const alerts = state.erp.attention && state.erp.attention.length > 0
+    ? state.erp.attention
+    : [
+        {
+          id: "alt-1",
+          severity: state.isDisrupted ? "CRITICAL" : "INFO",
+          title: state.isDisrupted ? "Station M3 Disruption Active" : "Shop Floor Operating Normally",
+          description: state.isDisrupted ? "3 scheduled operations rerouted; J7 deadline secured." : "6 of 6 production work centers running within optimal parameters.",
+          target_module: state.isDisrupted ? "scenarios" : "production",
+        },
+      ];
+
+  if (countBadge) countBadge.textContent = `${alerts.length} alerts`;
+
+  container.innerHTML = alerts
+    .map((alert) => {
+      const sevClass = alert.severity === "CRITICAL" ? "critical" : alert.severity === "WARNING" ? "warning" : "info";
+      const targetId = alert.target_module === "inventory" ? "inventory"
+        : alert.target_module === "shop_floor" ? "explorer"
+        : alert.target_module === "scenarios" ? "disruption"
+        : "production";
+
+      return `
+        <div class="attention-item ${sevClass}" onclick="scrollToModule('${targetId}')">
+          <div class="attention-item-left">
+            <span class="attention-severity-dot"></span>
+            <div>
+              <div class="attention-item-title">${escapeHtml(alert.title)}</div>
+              <div class="attention-item-desc">${escapeHtml(alert.description)}</div>
+            </div>
+          </div>
+          <div class="attention-item-nav">Inspect ➔</div>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function scrollToModule(sectionId) {
+  const el = document.getElementById(sectionId);
+  if (el) el.scrollIntoView({ behavior: "smooth" });
+}
+
+// ── MODULE 2: PRODUCTION WORKSPACE ──
+function switchProductionTab(tabName) {
+  state.activeProductionTab = tabName;
+  const buttons = document.querySelectorAll(".subnav-btn");
+  buttons.forEach((b) => b.classList.remove("active"));
+  event.target.classList.add("active");
+
+  const tabContents = {
+    orders: document.getElementById("tabContentOrders"),
+    jobs: document.getElementById("tabContentJobs"),
+    gantt: document.getElementById("tabContentGantt"),
+    capacity: document.getElementById("tabContentCapacity"),
+  };
+
+  Object.values(tabContents).forEach((c) => {
+    if (c) c.classList.remove("active");
+  });
+
+  if (tabContents[tabName]) {
+    tabContents[tabName].classList.add("active");
+  }
+
+  if (tabName === "gantt") renderGanttChart();
+}
+
+function renderProductionModule() {
+  renderOrdersTable();
+  renderJobsTable();
+  renderGanttChart();
+  renderCapacityMatrix();
+}
+
+function renderOrdersTable() {
+  const tbody = document.getElementById("ordersTableBody");
+  const meta = document.getElementById("ordersTableMeta");
+  if (!tbody) return;
+
+  const orders = state.erp.orders || [];
+  if (meta) meta.textContent = `${orders.length} Orders Tracked`;
+
+  tbody.innerHTML = orders
+    .map((o) => {
+      const riskClass = o.risk_level === "High" ? "high" : o.risk_level === "Medium" ? "medium" : "low";
+      const statusClass = o.status === "At Risk" ? "at-risk" : "running";
+      const isRisk = o.status === "At Risk" || o.risk_level === "High";
+
+      return `
+        <tr>
+          <td class="code-cell">${escapeHtml(o.order_id)}</td>
+          <td><strong>${escapeHtml(o.customer)}</strong> <span style="color:var(--text-muted);">(${escapeHtml(o.product)})</span></td>
+          <td>${o.quantity} units</td>
+          <td><span class="priority-pill ${o.priority >= 4 ? 'high' : o.priority === 3 ? 'medium' : 'low'}">P${o.priority}</span></td>
+          <td>${o.deadline}m</td>
+          <td><span class="status-pill ${statusClass}">${escapeHtml(o.status)}</span></td>
+          <td>
+            <div class="progress-bar-wrap">
+              <div class="progress-bar-bg">
+                <div class="progress-bar-fill ${isRisk ? 'at-risk' : ''}" style="width: ${o.progress}%;"></div>
+              </div>
+              <span class="progress-bar-text">${o.progress}%</span>
+            </div>
+          </td>
+          <td><span class="priority-pill ${riskClass}">${escapeHtml(o.risk_level)}</span></td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+function renderJobsTable() {
+  const tbody = document.getElementById("jobsTableBody");
+  if (!tbody) return;
+
+  const schedule = state.currentSchedule || [];
+  tbody.innerHTML = schedule
+    .map((j) => {
+      const isReassigned = !!j.reassigned;
+      const statusText = isReassigned ? "Reassigned" : "Scheduled";
+      const statusClass = isReassigned ? "at-risk" : "running";
+
+      return `
+        <tr>
+          <td class="code-cell">${escapeHtml(j.job_id)}</td>
+          <td>${escapeHtml(j.order_id || j.name || "ORD-1001")}</td>
+          <td>${j.duration} min</td>
+          <td><span class="code-cell" style="padding:2px 6px; background:var(--bg-tertiary); border-radius:4px;">${escapeHtml(j.machine)}</span></td>
+          <td><span class="priority-pill ${j.priority >= 4 ? 'high' : 'medium'}">P${j.priority || 2}</span></td>
+          <td>${j.deadline || j.due || 150}m</td>
+          <td><span class="status-pill ${statusClass}">${statusText}</span></td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+function filterJobsTable() {
+  const input = document.getElementById("jobsSearchInput");
+  const filter = (input ? input.value : "").toUpperCase();
+  const rows = document.querySelectorAll("#jobsTableBody tr");
+
+  rows.forEach((row) => {
+    const text = row.textContent.toUpperCase();
+    row.style.display = text.indexOf(filter) > -1 ? "" : "none";
+  });
+}
+
+function applyGanttFilters() {
+  const machSelect = document.getElementById("ganttMachineFilter");
+  const statSelect = document.getElementById("ganttStatusFilter");
+  state.ganttFilters.machine = machSelect ? machSelect.value : "ALL";
+  state.ganttFilters.status = statSelect ? statSelect.value : "ALL";
+  renderGanttChart();
+}
+
 function renderGanttChart() {
   const grid = document.getElementById("ganttGrid");
   const ruler = document.getElementById("ganttRuler");
   if (!grid) return;
 
   const schedule = state.currentSchedule || [];
-  let machines = (state.factory && state.factory.machines && Object.keys(state.factory.machines).length > 0)
+  let machines = state.factory && state.factory.machines
     ? Object.keys(state.factory.machines)
-    : [];
-  if (!machines.length) {
-    machines = schedule.length > 0
-      ? Array.from(new Set(schedule.map((a) => a.machine)))
-      : ["M1", "M2", "M3", "M4", "M5", "M6"];
-  }
+    : ["M1", "M2", "M3", "M4", "M5", "M6"];
   machines.sort();
+
+  if (state.ganttFilters.machine !== "ALL") {
+    machines = machines.filter((m) => m === state.ganttFilters.machine);
+  }
 
   const makespan = schedule.length > 0
     ? Math.max(...schedule.map((a) => a.start + a.duration))
     : 300;
 
-  // Render Rows
   let gridHtml = "";
   machines.forEach((mId, idx) => {
     const isOffline = state.factory && state.factory.machines[mId] && state.factory.machines[mId].status !== "available";
-    const jobs = schedule.filter((a) => a.machine === mId);
+    let jobs = schedule.filter((a) => a.machine === mId);
+
+    if (state.ganttFilters.status === "REASSIGNED") {
+      jobs = jobs.filter((j) => !!j.reassigned);
+    } else if (state.ganttFilters.status === "AT_RISK") {
+      jobs = jobs.filter((j) => (j.start + j.duration) > (j.deadline || j.due || 999));
+    }
 
     gridHtml += `
       <div class="gantt-row" id="grow_${mId}">
@@ -509,7 +672,7 @@ function renderGanttChart() {
         <div class="gantt-row-track">
     `;
 
-    // Render unavailable maintenance blocks if any
+    // Scheduled maintenance strips
     const unavailList = (state.factory && state.factory.machines[mId] && state.factory.machines[mId].unavailable_periods) || [];
     unavailList.forEach((period) => {
       if (Array.isArray(period) && period.length >= 2) {
@@ -526,10 +689,8 @@ function renderGanttChart() {
 
     jobs.forEach((j) => {
       const left = ((j.start / makespan) * 100).toFixed(2);
-      const width = Math.max(3.5, (j.duration / makespan) * 100).toFixed(2);
+      const width = Math.max(4.0, (j.duration / makespan) * 100).toFixed(2);
 
-      // Color Palette matching Reference Screen 2:
-      // Row 1-2: soft blues; Row 3-4: soft greens; Row 5-6: warm amber
       let colorClass = "color-blue";
       if (idx === 2 || idx === 3) colorClass = "color-green";
       else if (idx >= 4) colorClass = "color-amber";
@@ -549,7 +710,7 @@ function renderGanttChart() {
     if (isOffline) {
       gridHtml += `
         <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(239,68,68,0.06); color:#ef4444; font-size:0.75rem; font-weight:700; letter-spacing:0.06em;">
-          OFFLINE
+          OFFLINE (FAILED)
         </div>
       `;
     }
@@ -559,7 +720,6 @@ function renderGanttChart() {
 
   grid.innerHTML = gridHtml;
 
-  // Render Time Ruler (0h, 2h, 4h...)
   if (ruler) {
     let rulerHtml = "";
     const steps = 6;
@@ -571,111 +731,599 @@ function renderGanttChart() {
   }
 }
 
-// Screen 5: Disruption State Banner
-function renderDisruptionBanner() {
-  const badge = document.getElementById("disruptionBadge");
-  const title = document.getElementById("disruptionTitle");
-  const jobsAff = document.getElementById("impactJobsAffected");
-  const risks = document.getElementById("impactDeadlineRisks");
-  const delay = document.getElementById("impactDelay");
+function renderCapacityMatrix() {
+  const tbody = document.getElementById("capacityTableBody");
+  if (!tbody) return;
+
+  const matrix = state.erp.capacity || [];
+  tbody.innerHTML = matrix
+    .map((c) => {
+      const isFailed = c.status === "FAILED";
+      return `
+        <tr>
+          <td><strong>${c.machine_id}</strong> <span style="color:var(--text-muted);">(${escapeHtml(c.machine_name)})</span></td>
+          <td>${c.available_capacity} min</td>
+          <td>${c.scheduled_load} min</td>
+          <td>
+            <div class="progress-bar-wrap">
+              <div class="progress-bar-bg">
+                <div class="progress-bar-fill ${isFailed ? 'at-risk' : ''}" style="width: ${c.utilization}%;"></div>
+              </div>
+              <span class="progress-bar-text">${c.utilization}%</span>
+            </div>
+          </td>
+          <td>${c.remaining_capacity} min</td>
+          <td><span class="status-pill ${isFailed ? 'stopped' : 'running'}">${c.status}</span></td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+// ── MODULE 3: SHOP FLOOR (FLEET EXPLORER) ──
+function renderFactoryExplorer() {
+  const grid = document.getElementById("machinesGrid");
+  if (!grid) return;
+
+  const activeMachines = state.factory ? state.factory.machines : {};
+  let machineKeys = Object.keys(activeMachines);
+  if (!machineKeys.length) machineKeys = ["M1", "M2", "M3", "M4", "M5", "M6"];
+  machineKeys.sort();
+
+  let html = "";
+  machineKeys.forEach((id, idx) => {
+    const imgIndex = (idx % 6) + 1;
+    const fallbackImg = `/static/assets/machines/m${imgIndex}.jpg`;
+    const spec = MACHINE_SPECS[id] || { name: `Workstation ${id}`, type: "Machine Cell", img: fallbackImg, defaultUtil: 85, power: 15.0 };
+    const liveMachine = activeMachines[id];
+    const isStopped = liveMachine ? liveMachine.status !== "available" : (id === "M3" && state.isDisrupted);
+
+    let statusText = isStopped ? "STOPPED" : "RUNNING";
+    let statusClass = isStopped ? "stopped" : "running";
+
+    if (liveMachine && liveMachine.unavailable_periods && liveMachine.unavailable_periods.length > 0) {
+      const p = liveMachine.unavailable_periods[0];
+      statusText = `MAINT [${p[0]}-${p[1]}m]`;
+      statusClass = "maintenance";
+    }
+
+    let util = spec.defaultUtil;
+    if (state.baselineMetrics && state.baselineMetrics.machine_utilization && state.baselineMetrics.machine_utilization[id] !== undefined) {
+      util = Math.round(state.baselineMetrics.machine_utilization[id]);
+    } else if (isStopped) {
+      util = 0;
+    }
+
+    // Find current executing job
+    const assignedJobs = (state.currentSchedule || []).filter((j) => j.machine === id);
+    const currentJob = assignedJobs.length > 0 ? assignedJobs[0].job_id : "IDLE";
+
+    html += `
+      <div class="machine-card ${isStopped ? "stopped" : ""}" id="card_${id}" onclick="openMachineModal('${id}')" title="Click to open workstation telemetry">
+        <div class="machine-card-header">
+          <div>
+            <div class="machine-card-id">${id} · ${currentJob}</div>
+            <div class="machine-card-name">${spec.name}</div>
+            <div class="machine-card-status ${statusClass}">${statusText}</div>
+          </div>
+          <div class="machine-card-util">${util}%</div>
+        </div>
+        <div class="machine-card-image-wrap">
+          <img src="${spec.img}" alt="${spec.name}" class="machine-card-image" onerror="this.src='/static/assets/machines/m1.jpg'">
+        </div>
+      </div>
+    `;
+  });
+
+  grid.innerHTML = html;
+}
+
+// ── MODULE 4: INVENTORY MODULE ──
+function renderInventoryModule() {
+  const tbody = document.getElementById("inventoryTableBody");
+  const totalParts = document.getElementById("invTotalParts");
+  const availUnits = document.getElementById("invAvailableUnits");
+  const resUnits = document.getElementById("invReservedUnits");
+  const riskCount = document.getElementById("invAtRiskCount");
+  const riskCallout = document.getElementById("inventoryRiskCallout");
+  const riskTitle = document.getElementById("inventoryRiskTitle");
+  const riskText = document.getElementById("inventoryRiskText");
+
+  const inventory = state.erp.inventory || [];
+  if (totalParts) totalParts.textContent = inventory.length || 5;
+
+  let sumAvail = 0;
+  let sumRes = 0;
+  let atRiskItems = [];
+
+  inventory.forEach((item) => {
+    const avail = item.available_quantity !== undefined ? item.available_quantity : (item.available_qty || 0);
+    const res = item.reserved_quantity !== undefined ? item.reserved_quantity : (item.reserved_qty || 0);
+    sumAvail += avail;
+    sumRes += res;
+    if (item.status === "LOW STOCK" || item.status === "OUT OF STOCK") {
+      atRiskItems.push(item);
+    }
+  });
+
+  if (availUnits) availUnits.textContent = sumAvail.toLocaleString();
+  if (resUnits) resUnits.textContent = sumRes.toLocaleString();
+  if (riskCount) riskCount.textContent = atRiskItems.length;
+
+  if (riskCallout && riskTitle && riskText) {
+    if (atRiskItems.length > 0) {
+      const partName = atRiskItems[0].part_name || "Raw Material";
+      const partId = atRiskItems[0].part_id || "RM";
+      const reorderLvl = atRiskItems[0].reorder_level || 200;
+      riskTitle.textContent = `Inventory Warning: ${partName} (${partId})`;
+      riskText.textContent = `${partName} will fall below safety reorder level (${reorderLvl} units) after active Order requirements complete. Reorder triggered.`;
+      riskCallout.style.borderColor = "#fae4a8";
+      riskCallout.style.background = "#fffcf4";
+    } else {
+      riskTitle.textContent = "Inventory Buffer Nominal";
+      riskText.textContent = "All raw materials and components have sufficient available inventory to fulfill active production schedules.";
+      riskCallout.style.borderColor = "#a7f3d0";
+      riskCallout.style.background = "#f0fdf4";
+    }
+  }
+
+  if (tbody) {
+    tbody.innerHTML = inventory
+      .map((item) => {
+        const isLow = item.status === "LOW STOCK";
+        const isOut = item.status === "OUT OF STOCK";
+        const statClass = isOut ? "stopped" : isLow ? "at-risk" : "running";
+        const avail = item.available_quantity !== undefined ? item.available_quantity : (item.available_qty || 0);
+        const reserved = item.reserved_quantity !== undefined ? item.reserved_quantity : (item.reserved_qty || 0);
+        const incoming = item.incoming_quantity !== undefined ? item.incoming_quantity : (item.incoming_qty || 0);
+        const reorder = item.reorder_level || 0;
+        const unit = item.unit || "units";
+
+        return `
+          <tr>
+            <td class="code-cell">${escapeHtml(item.part_id)}</td>
+            <td><strong>${escapeHtml(item.part_name)}</strong></td>
+            <td>${avail} ${escapeHtml(unit)}</td>
+            <td>${reserved} ${escapeHtml(unit)}</td>
+            <td>+${incoming} ${escapeHtml(unit)}</td>
+            <td>${reorder} ${escapeHtml(unit)}</td>
+            <td><span class="status-pill ${statClass}">${escapeHtml(item.status)}</span></td>
+          </tr>
+        `;
+      })
+      .join("");
+  }
+}
+
+// ── MODULE 5: MAINTENANCE MODULE ──
+function renderMaintenanceModule() {
+  const tbody = document.getElementById("maintenanceTableBody");
+  const avgHealthEl = document.getElementById("maintAvgHealth");
+  const activeTicketsEl = document.getElementById("maintActiveTickets");
+  const downtimeEl = document.getElementById("maintTotalDowntime");
+
+  const maintenance = state.erp.maintenance || [];
+
+  if (maintenance.length > 0) {
+    const avgHealth = Math.round(maintenance.reduce((acc, m) => acc + m.health_score, 0) / maintenance.length);
+    const tickets = maintenance.filter((m) => m.status === "FAILED" || m.status === "MAINTENANCE").length;
+    const totalDowntime = maintenance.reduce((acc, m) => acc + m.downtime_minutes, 0);
+
+    if (avgHealthEl) avgHealthEl.textContent = `${avgHealth}%`;
+    if (activeTicketsEl) activeTicketsEl.textContent = tickets;
+    if (downtimeEl) downtimeEl.textContent = `${totalDowntime} min`;
+  }
+
+  if (tbody) {
+    tbody.innerHTML = maintenance
+      .map((m) => {
+        const isFailed = m.status === "FAILED";
+        const statClass = isFailed ? "stopped" : m.status === "MAINTENANCE" ? "maintenance" : "running";
+
+        return `
+          <tr>
+            <td><strong>${escapeHtml(m.machine_id)}</strong> <span style="color:var(--text-muted);">(${escapeHtml(m.machine_name)})</span></td>
+            <td>
+              <div class="progress-bar-wrap">
+                <div class="progress-bar-bg">
+                  <div class="progress-bar-fill ${isFailed ? 'at-risk' : ''}" style="width: ${m.health_score}%;"></div>
+                </div>
+                <span class="progress-bar-text">${m.health_score}%</span>
+              </div>
+            </td>
+            <td>${escapeHtml(m.last_maintenance_date || m.last_maintenance || "Sep 12")}</td>
+            <td>${escapeHtml(m.next_maintenance_date || m.next_maintenance || "Sep 15")}</td>
+            <td>${m.runtime_hours} hrs</td>
+            <td>${m.downtime_minutes} min</td>
+            <td><span class="status-pill ${statClass}">${escapeHtml(m.status)}</span></td>
+          </tr>
+        `;
+      })
+      .join("");
+  }
+}
+
+// ── MODULE 6: ANALYTICS MODULE ──
+function renderAnalyticsModule() {
+  const baseMs = document.getElementById("anaMakespanBase");
+  const disMs = document.getElementById("anaMakespanDis");
+  const recMs = document.getElementById("anaMakespanRec");
+  const msDelta = document.getElementById("anaMakespanDelta");
+
+  const baseLate = document.getElementById("anaLateBase");
+  const disLate = document.getElementById("anaLateDis");
+  const recLate = document.getElementById("anaLateRec");
+
+  const baseEnergy = document.getElementById("anaEnergyBase");
+  const disEnergy = document.getElementById("anaEnergyDis");
+  const recEnergy = document.getElementById("anaEnergyRec");
+
+  const baseRes = document.getElementById("anaResBase");
+  const disRes = document.getElementById("anaResDis");
+  const recRes = document.getElementById("anaResRec");
+
+  const bM = state.baselineMetrics || {};
+  const rM = state.recoveryMetrics || {};
+  const bR = state.baselineResilience || {};
+  const rR = state.recoveryResilience || {};
+
+  if (state.isDisrupted) {
+    if (baseMs) baseMs.textContent = `${bM.makespan || 520}m`;
+    if (disMs) disMs.textContent = "590m";
+    if (recMs) recMs.textContent = `${rM.makespan || 445}m`;
+    if (msDelta) msDelta.textContent = `-${Math.max(10, (bM.makespan || 520) - (rM.makespan || 445))} min improved via GA re-optimization`;
+
+    if (baseLate) baseLate.textContent = bM.late_jobs || 4;
+    if (disLate) disLate.textContent = "7";
+    if (recLate) recLate.textContent = `${rM.late_jobs || 0}`;
+
+    if (baseEnergy) baseEnergy.textContent = `${Math.round(bM.energy_kwh || 1120)} kWh`;
+    if (disEnergy) disEnergy.textContent = "1,180 kWh";
+    if (recEnergy) recEnergy.textContent = `${Math.round(rM.energy_kwh || 980)} kWh`;
+
+    if (baseRes) baseRes.textContent = bR.score || 87;
+    if (disRes) disRes.textContent = "54";
+    if (recRes) recRes.textContent = `${rR.score || 81}`;
+  } else {
+    if (baseMs) baseMs.textContent = "480m";
+    if (disMs) disMs.textContent = "480m";
+    if (recMs) recMs.textContent = "445m";
+
+    if (baseLate) baseLate.textContent = "0";
+    if (disLate) disLate.textContent = "0";
+    if (recLate) recLate.textContent = "0";
+
+    if (baseEnergy) baseEnergy.textContent = "980 kWh";
+    if (disEnergy) disEnergy.textContent = "980 kWh";
+    if (recEnergy) recEnergy.textContent = "980 kWh";
+
+    if (baseRes) baseRes.textContent = "87";
+    if (disRes) disRes.textContent = "87";
+    if (recRes) recRes.textContent = "87";
+  }
+}
+
+// ── MODULE 7: AI OPERATIONS COPILOT ──
+async function askCopilotPreset(question) {
+  const input = document.getElementById("copilotQueryInput");
+  if (input) input.value = question;
+  await submitCopilotQuery();
+}
+
+async function submitCopilotQuery() {
+  const input = document.getElementById("copilotQueryInput");
+  const question = input ? input.value.trim() : "";
+  if (!question) return;
+
+  const btn = document.getElementById("btnAskCopilot");
+  const directAnswer = document.getElementById("copilotDirectAnswer");
+  const explanationBody = document.getElementById("copilotExplanationBody");
+  const metricsStrip = document.getElementById("copilotMetricsStrip");
+  const footerRow = document.getElementById("copilotFooterRow");
+  const entitiesList = document.getElementById("copilotEntitiesList");
+  const actionsList = document.getElementById("copilotActionsList");
+  const providerName = document.getElementById("copilotProviderName");
+  const timestamp = document.getElementById("copilotTimestamp");
+
+  if (btn) btn.disabled = true;
+  if (directAnswer) directAnswer.textContent = "Analyzing real-time factory telemetry & schedule constraints...";
+
+  try {
+    const res = await fetch("/copilot/query", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question }),
+    });
+
+    const data = await res.json();
+
+    if (providerName) providerName.textContent = data.provider || "FlowForge AI Operations Copilot";
+    if (timestamp) timestamp.textContent = `Generated at ${new Date().toLocaleTimeString()}`;
+
+    if (directAnswer) directAnswer.textContent = data.concise_answer || "Analysis complete.";
+    if (explanationBody) explanationBody.textContent = data.explanation || "";
+
+    // Metric Badges
+    if (metricsStrip) {
+      const metrics = data.metrics || {};
+      const keys = Object.keys(metrics);
+      if (keys.length > 0) {
+        metricsStrip.style.display = "flex";
+        metricsStrip.innerHTML = keys
+          .map((k) => `<span class="copilot-metric-pill">${escapeHtml(k)}: ${escapeHtml(metrics[k])}</span>`)
+          .join("");
+      } else {
+        metricsStrip.style.display = "none";
+      }
+    }
+
+    // Entities & Actions
+    if (footerRow && entitiesList && actionsList) {
+      const entities = data.affected_entities || [];
+      const actions = data.recommended_investigation || [];
+
+      if (entities.length > 0 || actions.length > 0) {
+        footerRow.style.display = "grid";
+        entitiesList.innerHTML = entities.map((e) => `<span class="copilot-entity-chip">${escapeHtml(e)}</span>`).join("");
+        actionsList.innerHTML = actions.map((a) => `<li>${escapeHtml(a)}</li>`).join("");
+      } else {
+        footerRow.style.display = "none";
+      }
+    }
+  } catch (err) {
+    console.error("Copilot query error:", err);
+    if (directAnswer) directAnswer.textContent = "Unable to complete copilot query. Please try again.";
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+// ── MODULE 8: "WHAT CHANGED?" PANEL ──
+function renderWhatChangedPanel() {
+  const badge = document.getElementById("wcBadge");
+  const title = document.getElementById("wcTitle");
+  const timeEl = document.getElementById("wcTimestamp");
+  const impactList = document.getElementById("wcImpactList");
+  const responseList = document.getElementById("wcResponseList");
+  const msDelta = document.getElementById("wcMakespanDelta");
+  const lateDelta = document.getElementById("wcLateDelta");
+  const energyDelta = document.getElementById("wcEnergyDelta");
+  const resDelta = document.getElementById("wcResilienceDelta");
 
   if (!badge) return;
 
   if (state.isDisrupted) {
     badge.textContent = "M3 OFFLINE";
-    badge.style.background = "var(--color-red)";
-    if (title) title.textContent = "Stamping Press failure detected. Autonomous recovery active.";
-    if (jobsAff) jobsAff.textContent = "4";
-    if (risks) risks.textContent = "2";
-    if (delay) delay.textContent = "+95 min";
-  } else {
-    badge.textContent = "ALL SYSTEMS NOMINAL";
-    badge.style.background = "#10b981";
-    if (title) title.textContent = "Factory operational. Zero critical disruptions detected.";
-    if (jobsAff) jobsAff.textContent = "0";
-    if (risks) risks.textContent = "0";
-    if (delay) delay.textContent = "0 min";
-  }
-}
+    badge.style.background = "#fee2e2";
+    badge.style.color = "#991b1b";
 
-// Screen 6: Recovery Comparison Cards
-function renderComparisonCards() {
-  const msOld = document.getElementById("compMakespanOld");
-  const msNew = document.getElementById("compMakespanNew");
-  const msDelta = document.getElementById("compMakespanDelta");
+    if (title) title.textContent = "M3 Stamping Press failure detected";
+    if (timeEl) timeEl.textContent = "10:42 — Autonomous replanning triggered";
 
-  const lateOld = document.getElementById("compLateOld");
-  const lateNew = document.getElementById("compLateNew");
+    if (impactList) {
+      impactList.innerHTML = `
+        <li>3 scheduled operations affected on M3</li>
+        <li>1 customer order (ORD-1001) deadline at risk</li>
+        <li>18% stamping capacity temporarily unavailable</li>
+      `;
+    }
 
-  const engOld = document.getElementById("compEnergyOld");
-  const engNew = document.getElementById("compEnergyNew");
+    if (responseList) {
+      responseList.innerHTML = `
+        <span class="reassign-pill">J7 ➔ M5 (LATHE-P3)</span>
+        <span class="reassign-pill">J11 ➔ M4 (CONVEYOR-A1)</span>
+        <span class="reassign-pill">J15 ➔ M1 (CNC-01)</span>
+      `;
+    }
 
-  const resOld = document.getElementById("compResilienceOld");
-  const resNew = document.getElementById("compResilienceNew");
-
-  if (state.isDisrupted) {
-    if (msOld) msOld.textContent = "520";
-    if (msNew) animateNumber(msNew, 445);
     if (msDelta) msDelta.textContent = "-75 min saved";
-
-    if (lateOld) lateOld.textContent = "4";
-    if (lateNew) animateNumber(lateNew, 0);
-
-    if (engOld) engOld.textContent = "1120";
-    if (engNew) animateNumber(engNew, 980);
-
-    if (resOld) resOld.textContent = "54";
-    if (resNew) animateNumber(resNew, 81);
+    if (lateDelta) lateDelta.textContent = "0 late";
+    if (energyDelta) energyDelta.textContent = "-140 kWh";
+    if (resDelta) resDelta.textContent = "54 ➔ 81";
   } else {
-    if (msOld) msOld.textContent = "480";
-    if (msNew) msNew.textContent = "445";
-    if (msDelta) msDelta.textContent = "Optimal baseline";
+    badge.textContent = "ALL NOMINAL";
+    badge.style.background = "#ecfdf5";
+    badge.style.color = "#065f46";
 
-    if (lateOld) lateOld.textContent = "0";
-    if (lateNew) lateNew.textContent = "0";
+    if (title) title.textContent = "Factory operational — Baseline intact";
+    if (timeEl) timeEl.textContent = "Optimal production plan in execution";
 
-    if (engOld) engOld.textContent = "980";
-    if (engNew) engNew.textContent = "980";
+    if (impactList) {
+      impactList.innerHTML = `
+        <li>0 disrupted machine workstations</li>
+        <li>All 4 production orders on schedule</li>
+        <li>100% capacity headroom available</li>
+      `;
+    }
 
-    if (resOld) resOld.textContent = "87";
-    if (resNew) resNew.textContent = "87";
+    if (responseList) {
+      responseList.innerHTML = `
+        <span class="reassign-pill" style="background:#f3f4f6; color:#374151; border-color:#e5e7eb;">No active reassignments needed</span>
+      `;
+    }
+
+    if (msDelta) msDelta.textContent = "445 min";
+    if (lateDelta) lateDelta.textContent = "0 late";
+    if (energyDelta) energyDelta.textContent = "980 kWh";
+    if (resDelta) resDelta.textContent = "87/100";
   }
 }
 
-// Screen 7: Decision Report (Engineering Rationale)
+function openExplanationFromDisruption() {
+  const copilotSection = document.getElementById("copilot");
+  if (copilotSection) copilotSection.scrollIntoView({ behavior: "smooth" });
+  askCopilotPreset("Why did FlowForge choose this recovery plan?");
+}
+
+// ── MODULE 9: HISTORY & DECISION REPORTS ──
+function renderHistoryAuditTrail() {
+  const tbody = document.getElementById("historyTableBody");
+  if (!tbody) return;
+
+  const history = state.history || [];
+  if (history.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="8" style="text-align:center; color:var(--text-muted); padding:20px;">
+          No disruption events recorded. Inject a scenario above to test the autonomous resilience engine.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = history
+    .map((item, idx) => {
+      const machines = item.affected_machines.join(", ") || "—";
+      const jobsCount = item.affected_jobs.length;
+      const msDelta = `${item.baseline_makespan}m → ${item.recovery_makespan}m`;
+      const resDelta = `${item.baseline_resilience} → ${item.recovery_resilience}`;
+
+      return `
+        <tr style="cursor:pointer;" onclick="selectHistoryReport(${idx})" title="Click to view Decision Report">
+          <td class="code-cell">${escapeHtml(item.timestamp)}</td>
+          <td><strong>${escapeHtml(item.description)}</strong></td>
+          <td><span class="code-cell">${escapeHtml(machines)}</span></td>
+          <td>${jobsCount} jobs</td>
+          <td>${msDelta}</td>
+          <td><span class="status-pill running">${resDelta}</span></td>
+          <td>${item.recovery_late} late</td>
+          <td><button class="btn-secondary" style="padding:3px 8px; font-size:0.75rem;" onclick="selectHistoryReport(${idx})">Inspect ➔</button></td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+function selectHistoryReport(idx) {
+  if (state.history[idx] && state.history[idx].decision_report) {
+    state.latestDecisionReport = state.history[idx].decision_report;
+    renderDecisionReport();
+    const card = document.getElementById("decisionReportCard");
+    if (card) card.scrollIntoView({ behavior: "smooth" });
+  }
+}
+
 function renderDecisionReport() {
+  const report = state.latestDecisionReport;
   const title = document.getElementById("reportTitle");
-  const src = document.getElementById("flowSourceMachine");
-  const job = document.getElementById("flowJobId");
-  const jobName = document.getElementById("flowJobName");
-  const target = document.getElementById("flowTargetMachine");
-  const text = document.getElementById("reportText");
+  const cellEvent = document.getElementById("reportCellEvent");
+  const cellImpact = document.getElementById("reportCellImpact");
+  const cellDecision = document.getElementById("reportCellDecision");
+  const cellReason = document.getElementById("reportCellReason");
+  const cellTradeoff = document.getElementById("reportCellTradeoff");
+  const cellOutcome = document.getElementById("reportCellOutcome");
 
   if (!title) return;
 
-  if (state.isDisrupted) {
-    title.textContent = "Why was J7 moved?";
-    if (src) src.textContent = "M3";
-    if (job) job.textContent = "J7";
-    if (jobName) jobName.textContent = "Exhaust Manifold";
-    if (target) target.textContent = "M5";
-    if (text) {
-      text.textContent = "M3 became unavailable due to hydraulic pressure loss. M5 had sufficient capacity to protect the production deadline while increasing energy consumption by only 3%.";
-    }
+  if (state.isDisrupted || report) {
+    title.textContent = report ? `Autonomous Reroute: ${report.decision}` : "Autonomous Workload Reroute: J7 Reassigned to M5";
+    if (cellEvent) cellEvent.textContent = report ? report.event : "Station M3 became unavailable due to mechanical failure.";
+    if (cellImpact) cellImpact.textContent = report ? report.impact : "3 scheduled operations were affected with immediate deadline vulnerability.";
+    if (cellDecision) cellDecision.textContent = report ? report.decision : "J7 was reassigned to M5; remaining operations distributed to M4 and M1.";
+    if (cellReason) cellReason.textContent = report ? report.reason : "M5 had sufficient remaining capacity and protected the J7 delivery deadline.";
+    if (cellTradeoff) cellTradeoff.textContent = report ? report.tradeoff : "Energy consumption increased by 3% across alternative station routing.";
+    if (cellOutcome) cellOutcome.textContent = report ? report.outcome : "Customer deadline protected. Zero late jobs introduced to production.";
   } else {
-    title.textContent = "Autonomous Schedule Integrity";
-    if (src) src.textContent = "M1";
-    if (job) job.textContent = "J1";
-    if (jobName) jobName.textContent = "Engine Block";
-    if (target) target.textContent = "M2";
-    if (text) {
-      text.textContent = "Production plan generated via Multi-Objective Genetic Algorithm optimizing across cycle time, deadline safety, and equipment energy profiles.";
+    title.textContent = "Autonomous Schedule Integrity: Baseline Feasible";
+    if (cellEvent) cellEvent.textContent = "Factory initialized under nominal operating conditions.";
+    if (cellImpact) cellImpact.textContent = "All 24 operations sequenced within machine capability constraints.";
+    if (cellDecision) cellDecision.textContent = "Production plan generated via Multi-Objective Genetic Algorithm.";
+    if (cellReason) cellReason.textContent = "Optimal balance between makespan, machine idle time, and energy.";
+    if (cellTradeoff) cellTradeoff.textContent = "Baseline configuration prioritized throughput and equipment longevity.";
+    if (cellOutcome) cellOutcome.textContent = "All production orders meet promised delivery milestones.";
+  }
+}
+
+// ── MACHINE DETAIL MODAL ──
+function openMachineModal(machineId) {
+  state.selectedMachineForModal = machineId;
+  const modal = document.getElementById("machineModalBackdrop");
+  if (!modal) return;
+
+  const spec = MACHINE_SPECS[machineId] || { name: `Workstation ${machineId}`, defaultUtil: 85, power: 15.0 };
+  const liveMachine = state.factory && state.factory.machines ? state.factory.machines[machineId] : null;
+  const isAvail = liveMachine ? liveMachine.status === "available" : !(machineId === "M3" && state.isDisrupted);
+
+  const pretitle = document.getElementById("modalMachinePretitle");
+  const title = document.getElementById("modalMachineTitle");
+  const statusEl = document.getElementById("modalMachineStatus");
+  const utilEl = document.getElementById("modalMachineUtil");
+  const energyEl = document.getElementById("modalMachineEnergy");
+  const runtimeEl = document.getElementById("modalMachineRuntime");
+  const queueEl = document.getElementById("modalMachineQueue");
+  const maintDesc = document.getElementById("modalMachineMaintDesc");
+
+  if (pretitle) pretitle.textContent = `WORKSTATION TELEMETRY · ${machineId}`;
+  if (title) title.textContent = `${machineId} — ${spec.name}`;
+
+  if (statusEl) {
+    statusEl.textContent = isAvail ? "RUNNING" : "FAILED";
+    statusEl.className = isAvail ? "val status-pill running" : "val status-pill stopped";
+  }
+
+  const util = isAvail ? spec.defaultUtil : 0;
+  if (utilEl) utilEl.textContent = `${util}%`;
+  if (energyEl) energyEl.textContent = `${spec.power} kWh`;
+  if (runtimeEl) runtimeEl.textContent = isAvail ? "5.8 hrs" : "1.2 hrs";
+
+  // Assigned queue
+  const assigned = (state.currentSchedule || []).filter((j) => j.machine === machineId);
+  if (queueEl) {
+    if (assigned.length === 0) {
+      queueEl.innerHTML = `<div class="modal-queue-item" style="color:var(--text-muted);">No jobs currently assigned (Station Idle)</div>`;
+    } else {
+      queueEl.innerHTML = assigned
+        .map((j) => `
+          <div class="modal-queue-item">
+            <span><strong>${j.job_id}</strong> (${j.duration}m)</span>
+            <span style="color:var(--text-muted);">Start: ${j.start}m · Due: ${j.deadline || j.due || 150}m</span>
+          </div>
+        `)
+        .join("");
     }
+  }
+
+  if (maintDesc) {
+    maintDesc.textContent = isAvail
+      ? `Station health is nominal (92%). Next scheduled preventive maintenance: in 3 days.`
+      : `CRITICAL ALERT: Station offline due to simulated stoppage. Autonomous resilience replanned assigned operations.`;
+  }
+
+  modal.classList.add("active");
+}
+
+function closeMachineModal(event) {
+  const modal = document.getElementById("machineModalBackdrop");
+  if (modal) modal.classList.remove("active");
+}
+
+async function modalTriggerFail() {
+  closeMachineModal();
+  await triggerMachineFailure(state.selectedMachineForModal);
+}
+
+async function modalTriggerMaint() {
+  closeMachineModal();
+  await triggerPlannedDowntime(state.selectedMachineForModal);
+}
+
+async function modalTriggerRestore() {
+  closeMachineModal();
+  await triggerMachineRecovery(state.selectedMachineForModal);
+}
+
+function toggleTerminalPower() {
+  // Industrial sound effect / micro-toggle
+  const terminal = document.querySelector(".terminal-screen");
+  if (terminal) {
+    terminal.style.opacity = terminal.style.opacity === "0.6" ? "1" : "0.6";
+    setTimeout(() => (terminal.style.opacity = "1"), 200);
   }
 }
 
 // ═════════════════════════════════════════════════════════════════════════
-// 5. INTERACTIVE SCENARIOS (TRIGGER DISRUPTIONS & RECOVERY)
+// 5. INTERACTIVE SCENARIOS (DISRUPTIONS & RECOVERIES)
 // ═════════════════════════════════════════════════════════════════════════
 
 async function triggerMachineFailure(machineId = "M3") {
@@ -688,12 +1336,11 @@ async function triggerMachineFailure(machineId = "M3") {
 
     const data = await res.json();
     state.isDisrupted = true;
-    state.currentSchedule = (data.schedules && data.schedules.recovery) ? data.schedules.recovery : state.baselineSchedule;
+    state.currentSchedule = data.schedules && data.schedules.recovery ? data.schedules.recovery : state.baselineSchedule;
     state.recoverySchedule = state.currentSchedule;
     state.recoveryMetrics = data.metrics ? data.metrics.recovery : null;
     state.recoveryResilience = data.resilience ? data.resilience.recovery : null;
 
-    // Mark reassigned jobs
     if (data.affected_jobs && data.affected_jobs.length > 0) {
       const affectedSet = new Set(data.affected_jobs);
       state.currentSchedule.forEach((item) => {
@@ -701,15 +1348,11 @@ async function triggerMachineFailure(machineId = "M3") {
       });
     }
 
-    // Update factory state
-    const stateRes = await fetch("/factory/state");
-    state.factory = await stateRes.json();
-
+    await refreshAllOperationalData();
     updateUI();
 
-    // Smooth scroll to Disruption section
-    const targetSection = document.getElementById("disruption");
-    if (targetSection) targetSection.scrollIntoView({ behavior: "smooth" });
+    const target = document.getElementById("disruption");
+    if (target) target.scrollIntoView({ behavior: "smooth" });
   } catch (err) {
     console.error("Disruption error:", err);
   }
@@ -725,15 +1368,13 @@ async function triggerMachineRecovery(machineId = "M3") {
 
     const data = await res.json();
     state.isDisrupted = false;
-    state.currentSchedule = (data.schedules && data.schedules.recovery) ? data.schedules.recovery : state.baselineSchedule;
+    state.currentSchedule = data.schedules && data.schedules.recovery ? data.schedules.recovery : state.baselineSchedule;
 
-    const stateRes = await fetch("/factory/state");
-    state.factory = await stateRes.json();
-
+    await refreshAllOperationalData();
     updateUI();
 
-    const targetSection = document.getElementById("recovery");
-    if (targetSection) targetSection.scrollIntoView({ behavior: "smooth" });
+    const target = document.getElementById("control-center");
+    if (target) target.scrollIntoView({ behavior: "smooth" });
   } catch (err) {
     console.error("Recovery error:", err);
   }
@@ -756,7 +1397,11 @@ async function triggerUrgentJob() {
     const data = await res.json();
     state.isDisrupted = true;
     state.currentSchedule = data.schedules.recovery || state.currentSchedule;
+    await refreshAllOperationalData();
     updateUI();
+
+    const target = document.getElementById("production");
+    if (target) target.scrollIntoView({ behavior: "smooth" });
   } catch (err) {
     console.error("Urgent job error:", err);
   }
@@ -777,9 +1422,80 @@ async function triggerDeadlineShift() {
     const data = await res.json();
     state.isDisrupted = true;
     state.currentSchedule = data.schedules.recovery || state.currentSchedule;
+    await refreshAllOperationalData();
     updateUI();
   } catch (err) {
     console.error("Deadline shift error:", err);
+  }
+}
+
+async function triggerJobCancellation() {
+  try {
+    const res = await fetch("/disruptions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "job_cancellation",
+        job_id: "J12",
+      }),
+    });
+
+    const data = await res.json();
+    state.isDisrupted = true;
+    state.currentSchedule = data.schedules.recovery || state.currentSchedule;
+    await refreshAllOperationalData();
+    updateUI();
+  } catch (err) {
+    console.error("Cancellation error:", err);
+  }
+}
+
+async function triggerPlannedDowntime(machineId = "M4") {
+  try {
+    const res = await fetch("/disruptions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "machine_failure",
+        machine_id: machineId,
+      }),
+    });
+
+    const data = await res.json();
+    state.isDisrupted = true;
+    state.currentSchedule = data.schedules.recovery || state.currentSchedule;
+    await refreshAllOperationalData();
+    updateUI();
+  } catch (err) {
+    console.error("Planned downtime error:", err);
+  }
+}
+
+async function triggerMultipleFailures() {
+  try {
+    // Fail M1 first then M3
+    await fetch("/disruptions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "machine_failure", machine_id: "M1" }),
+    });
+
+    const res = await fetch("/disruptions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "machine_failure", machine_id: "M3" }),
+    });
+
+    const data = await res.json();
+    state.isDisrupted = true;
+    state.currentSchedule = data.schedules.recovery || state.currentSchedule;
+    await refreshAllOperationalData();
+    updateUI();
+
+    const target = document.getElementById("disruption");
+    if (target) target.scrollIntoView({ behavior: "smooth" });
+  } catch (err) {
+    console.error("Multiple failures error:", err);
   }
 }
 
@@ -790,17 +1506,6 @@ async function resetFactoryState() {
     updateUI();
   } catch (err) {
     console.error("Reset error:", err);
-  }
-}
-
-function toggleMachine(machineId) {
-  if (state.factory && state.factory.machines[machineId]) {
-    const isAvail = state.factory.machines[machineId].status === "available";
-    if (isAvail) {
-      triggerMachineFailure(machineId);
-    } else {
-      triggerMachineRecovery(machineId);
-    }
   }
 }
 
@@ -872,16 +1577,16 @@ async function runFlowForgeOptimization() {
         state.baselineResilience = data.resilience;
         state.factory = data.factory_state;
         state.isDisrupted = false;
+
+        await refreshAllOperationalData();
         updateUI();
 
-        // Scroll into Control Center
         document.getElementById("control-center").scrollIntoView({ behavior: "smooth" });
       }
     } catch (err) {
       console.error("Upload error:", err);
     }
   } else {
-    // If no file picked, re-run baseline on default factory
     await initFlowForgeEngine();
     document.getElementById("control-center").scrollIntoView({ behavior: "smooth" });
   }
@@ -907,26 +1612,8 @@ async function loadSampleJson() {
 }
 
 // ═════════════════════════════════════════════════════════════════════════
-// 7. UTILITIES: NUMBER ANIMATIONS & TOOLTIPS
+// 7. UTILITIES
 // ═════════════════════════════════════════════════════════════════════════
-
-function animateNumber(element, target, suffix = "") {
-  const start = parseInt(element.textContent.replace(/\D/g, "")) || 0;
-  const diff = target - start;
-  const duration = 600;
-  const startTime = performance.now();
-
-  function step(now) {
-    const elapsed = now - startTime;
-    const progress = Math.min(elapsed / duration, 1);
-    const eased = 1 - Math.pow(1 - progress, 3);
-    const current = Math.round(start + diff * eased);
-    element.textContent = `${current}${suffix}`;
-    if (progress < 1) requestAnimationFrame(step);
-  }
-
-  requestAnimationFrame(step);
-}
 
 function showTooltip(event, jobId, machine, start, duration, deadline) {
   const tip = document.getElementById("ganttTooltip");
