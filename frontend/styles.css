@@ -212,10 +212,10 @@ body {
   display: block;
 }
 
-/* Hero Text in the Middle/Top, floating with generous clearance above the 3D machine */
+/* Hero Text centered vertically in the middle between the top navbar and the 3D machine */
 .hero-content {
   position: absolute;
-  top: clamp(52px, 7.2vh, 76px);
+  top: clamp(98px, 14.2vh, 130px);
   left: 50%;
   transform: translateX(-50%);
   z-index: 10;
@@ -229,7 +229,7 @@ body {
 }
 
 .hero-title {
-  font-size: clamp(2.3rem, 4.8vw, 5rem);
+  font-size: clamp(2.3rem, 4.6vw, 4.8rem);
   font-weight: 800;
   letter-spacing: -0.04em;
   color: var(--text-primary);
