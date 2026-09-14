@@ -90,6 +90,8 @@ async function initHeroCanvasAnimation() {
 
     canvas.width = Math.floor(width * dpr);
     canvas.height = Math.floor(height * dpr);
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     ctx.imageSmoothingEnabled = true;
@@ -129,17 +131,38 @@ async function initHeroCanvasAnimation() {
     const srcW = Math.max(1, img.width - cropX * 2);
     const srcH = Math.max(1, img.height - cropY * 2);
 
-    // Fit to screen (cover mode) so it fills the screen completely, edge-to-edge
-    const hRatio = logicalWidth / srcW;
-    const vRatio = logicalHeight / srcH;
-    const ratio = Math.max(hRatio, vRatio);
+    const isPortrait = logicalWidth < logicalHeight;
+    const isMobile = logicalWidth < 768;
+
+    let ratio;
+    if (isPortrait || isMobile) {
+      // Responsive scale for mobile / portrait devices:
+      // Prevents 4x over-zooming so the machine terminal stays fully visible without cropping buttons/edges
+      const containRatio = Math.min(logicalWidth / srcW, logicalHeight / srcH);
+      const coverRatio = Math.max(logicalWidth / srcW, logicalHeight / srcH);
+      ratio = Math.min(coverRatio, containRatio * 1.32);
+    } else {
+      // Landscape desktop / laptop screens: crisp full-bleed cover
+      ratio = Math.max(logicalWidth / srcW, logicalHeight / srcH);
+    }
 
     const drawWidth = srcW * ratio;
     const drawHeight = srcH * ratio;
     const drawX = (logicalWidth - drawWidth) / 2;
-    const drawY = (logicalHeight - drawHeight) / 2;
 
-    ctx.clearRect(0, 0, logicalWidth, logicalHeight);
+    // Position machine with ample vertical clearance below hero text
+    let drawY = (logicalHeight - drawHeight) / 2;
+    if (isPortrait || isMobile) {
+      // On mobile / portrait, position machine gracefully in lower viewport area
+      drawY = Math.max(drawY, logicalHeight * 0.22);
+    } else {
+      // On desktop / laptop, bias downwards by ~36px so title & subtitle have generous clearance
+      drawY += Math.min(36, logicalHeight * 0.042);
+    }
+
+    // Fill seamless background matching hero studio gray to eliminate letterbox borders
+    ctx.fillStyle = "#e2e2e7";
+    ctx.fillRect(0, 0, logicalWidth, logicalHeight);
     ctx.drawImage(img, cropX, cropY, srcW, srcH, drawX, drawY, drawWidth, drawHeight);
   }
 
