@@ -1,130 +1,244 @@
-# ⚡ **FlowForge AI** : *Autonomous Production Resilience & Optimization*
+# ? FlowForge AI � *Autonomous Production Resilience & Optimization*
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-Backend-success?logo=fastapi&logoColor=white)
-![Genetic Algorithm](https://img.shields.io/badge/Genetic%20Algorithm-Multi--Objective-red?logo=dna&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.121-success?logo=fastapi&logoColor=white)
+![Claude](https://img.shields.io/badge/AI%20Copilot-Claude%203.5%20Sonnet-blueviolet?logo=anthropic&logoColor=white)
+![Genetic Algorithm](https://img.shields.io/badge/Optimizer-Multi--Objective%20GA-red)
 ![Tests](https://img.shields.io/badge/Tests-73%20Passing-brightgreen?logo=pytest&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-orange)
 
 > **"When the factory changes, the schedule changes with it."**
 
-**FlowForge AI** is an industrial-grade autonomous production resilience and shop-floor scheduling system. Designed with an Apple-grade editorial interface and high-performance algorithmic backend, FlowForge detects machine failures, rush orders, and bottleneck shifts in real time, computes multi-objective optimized recovery plans, and visualizes shop-floor dynamics through dynamic Gantt charts and interactive machine controls.
+**FlowForge AI** is an industrial-grade autonomous production resilience and shop-floor scheduling system. It detects machine failures, rush orders, and bottleneck shifts in real time, computes multi-objective optimized recovery plans, and visualizes shop-floor dynamics through dynamic Gantt charts and interactive machine controls � all backed by a Genetic Algorithm optimizer and an AI-powered Operations Copilot.
 
 ---
 
-## 🌟 **Key Features**
+## ?? Table of Contents
 
-### 🎨 1. Apple-Grade Editorial Industrial UI
-- **Frame-by-Frame Scroll Storytelling**: Interactive canvas-driven machine assembly animation synchronized to page scroll using high-DPI canvas rendering and smooth interpolation.
-- **Industrial Minimalist Design**: Clean light-gray industrial aesthetic, refined typography, and glassmorphic micro-interactions.
-- **Real-Time Status Indicator**: Dynamic sticky header status pill (`🟢 OPERATIONAL` / `🔴 DISRUPTED`) providing immediate operational state awareness and 1-click factory reset.
+- [Project Overview](#-project-overview)
+- [Key Features](#-key-features)
+- [Technologies Used](#-technologies-used)
+- [AI Tools & Models](#-ai-tools--models)
+- [Project Structure](#-project-structure)
+- [Supported Data Formats](#-supported-data-formats)
+- [Setup & Installation](#-setup--installation)
+- [Environment Configuration](#-environment-configuration)
+- [Usage](#-usage)
+- [REST API Reference](#-rest-api-reference)
+- [Running Tests](#-running-tests)
+- [Scripts & Utilities](#-scripts--utilities)
+- [Disruption & Resilience Walkthrough](#-disruption--resilience-walkthrough)
+- [Authors & License](#-authors--license)
 
-### 🏭 2. Integrated 9 ERP-Lite Operational Modules
-FlowForge bridges algorithmic resilience with daily manufacturing operations through 9 interconnected modules:
+---
 
-1. **Command Center**: Real-time operational cockpit aggregating active disruptions, order statuses, machine capacity loads, and factory resilience index.
-2. **Production Operations**: End-to-end production orders (`ORD-1001` through `ORD-1006`), customer commitments, quantities, deadline risk flags (*Low*, *Medium*, *Critical*), and completion progress bars.
-3. **Shop Floor & Fleet Telemetry**: Station cards displaying real-time machine statuses (`RUNNING`, `STOPPED`, `MAINTENANCE`), live utilization %, power profiles (kW), and single-click failure/recovery simulation toggles.
-4. **Inventory & Materials Management**: Raw material stock balances (`RM-001` to `RM-006`), allocated/reserved stock, minimum reorder thresholds, inventory health indicators (`IN STOCK`, `LOW STOCK`, `OUT OF STOCK`), and 1-click replenishment reorders.
-5. **Preventative & Corrective Maintenance**: Machine health scores (0–100%), Mean Time Between Failures (MTBF), upcoming scheduled maintenance windows, downtime logs, and interactive maintenance record logging.
-6. **Comparative Analytics & Capacity Matrix**: Side-by-side KPI deltas across Baseline, Disrupted, and Recovery states; machine capacity load matrix (available hours, scheduled load, utilization %, remaining capacity); and multi-dimensional resilience score breakdowns.
-7. **AI Operations Copilot**: Engineering reasoning layer powered by Anthropic Claude 3.5 Sonnet (with automatic deterministic rule-based fallback). Provides quantitative root-cause analysis, affected entity lists (`M3`, `J07`, `ORD-1004`), and actionable engineering guidance without violating the mathematical integrity of the GA optimizer.
-8. **Scenario Simulation Sandbox**: Real-time simulation of unexpected factory events: machine breakdowns (`🔴 Fail M3`), urgent rush orders (`⚡ Urgent Job J99`), customer deadline shifts (`⏳ Shift J7`), job cancellations (`❌ Cancel J12`), and machine recovery (`🟢 Recover M3`).
-9. **Audit History & Explainable AI (XAI) Reports**: Chronological audit trail recording disruption events, delta metrics (Makespan, Tardiness, Energy, Resilience), and transparent XAI decision reports explaining rerouting choices, rationale, and operational trade-offs.
+## ?? Project Overview
 
-### 📥 3. Flexible Multi-Format Ingestion Engine
+FlowForge AI solves a core challenge in modern manufacturing: **how does a factory stay productive when reality diverges from the plan?**
+
+It combines:
+- A **Multi-Objective Genetic Algorithm** (GA) scheduler that optimizes makespan, tardiness, energy, and utilization simultaneously.
+- An **Autonomous Disruption Engine** that reacts to machine failures, rush orders, and deadline shifts in real time.
+- An **AI Operations Copilot** (powered by Claude 3.5 Sonnet) that reasons over live factory state and answers engineering questions in natural language.
+- An **ERP-lite Coordination Layer** that tracks production orders, raw material inventory, machine maintenance, and capacity in a unified view.
+- An **Apple-grade editorial web UI** with scroll-driven canvas animation, real-time Gantt rendering, and a full Factory Explorer.
+
+---
+
+## ?? Key Features
+
+### ?? 1. Apple-Grade Editorial Industrial UI
+- **Frame-by-Frame Scroll Storytelling**: Canvas-driven machine assembly animation synchronized to page scroll using GSAP ScrollTrigger and high-DPI canvas rendering.
+- **Minimalist Aesthetic**: Clean light-gray industrial design with refined typography and glassmorphic micro-interactions.
+- **Clickable Status Indicator**: Live top-right status pill (`?? OPERATIONAL` / `?? DISRUPTED`) allowing 1-click factory reset.
+
+### ?? 2. Flexible Multi-Format Ingestion Engine
 - **Smart Excel Parser (`.xlsx`, `.xls`)**:
-  - **Fuzzy Header Synonym Matching**: Maps columns like `Part Name` ➔ `job_id`, `Cycle Time` ➔ `processing_time`, `Station` ➔ `machine` automatically.
-  - **Single-Sheet Auto-Conversion**: Automatically parses job tables and synthesizes machine models if a dedicated machines sheet is omitted.
-  - Transactional validation and user error feedback.
+  - **Fuzzy Header Synonym Matching**: Maps columns like `Part Name` ? `job_id`, `Cycle Time` ? `processing_time`, `Station` ? `machine` automatically.
+  - **Single-Sheet Auto-Conversion**: Parses flat job tables and synthesizes machine models if a dedicated machines sheet is absent.
 - **JSON Job Shop Benchmark Parser (`.json`)**:
-  - Accepts standard and custom Job Shop Scheduling Problem (JSSP) benchmark instances.
-  - Ingests dynamic machine fleets (`M0`, `M1`, `M2`...) and handles scheduled downtime windows (`unavailable_periods` e.g., `[[7, 12]]`).
-  - Automatically parses multi-operation job workflows with explicit sequence precedence.
+  - Accepts standard and custom Job Shop Scheduling Problem (JSSP) instances.
+  - Ingests dynamic machine fleets (`M0`, `M1`, `M2`...) with scheduled downtime windows (`unavailable_periods`, e.g., `[[7, 12]]`).
+  - Parses multi-operation job workflows with explicit sequence precedence.
 
-### ⚙️ 4. Precedence-Aware & Downtime-Resistant Scheduling
-- **Operation Sequence Precedence**: Guarantees that step $k+1$ for any multi-operation job strictly starts after step $k$ completes.
-- **Downtime & Maintenance Window Avoidance**: Automatically routes jobs around scheduled machine maintenance or unplanned outages without overlap.
+### ?? 3. Precedence-Aware & Downtime-Resistant Scheduling
+- **Operation Sequence Precedence**: Guarantees that step *k+1* for any multi-operation job strictly starts after step *k* completes.
+- **Downtime & Maintenance Window Avoidance**: Automatically routes jobs around scheduled maintenance or unplanned outages.
 - **Multi-Objective Optimization**:
-  - ⏱ **Makespan Minimization**: Shortens overall factory completion time.
-  - ⏳ **Tardiness Mitigation**: Heavily penalizes overdue delivery commitments.
-  - ⚡ **Energy Optimization**: Balances kW power profiles across machines.
-  - 🛑 **Utilization & Idle Capacity**: Keeps high-value equipment running efficiently.
+  - ? **Makespan Minimization** � Shortens overall factory completion time.
+  - ? **Tardiness Mitigation** � Heavily penalizes overdue delivery commitments.
+  - ? **Energy Optimization** � Balances kW power profiles across machines.
+  - ?? **Utilization & Idle Capacity** � Keeps high-value equipment running efficiently.
 
-### 🛡️ 5. Autonomous Disruption & Recovery Engine
+### ??? 4. Autonomous Disruption & Recovery Engine
 - **Event-Driven Resilience**:
-  - **Machine Failures**: Instantly detects station breakdowns and reroutes queued tasks to available backup machines.
+  - **Machine Failures**: Instantly detects station breakdowns and reroutes queued tasks to backup machines.
   - **Urgent Job Arrivals**: Preemptively slots expedited rush orders (`J99`) while minimizing ripple delays.
-  - **Deadline Shifts**: Automatically reschedules when customer order deadlines move forward (`J7`).
-  - **Job Cancellations**: Dynamically compacts schedules when orders are removed (`J12`).
-  - **Machine Recovery**: Dynamically re-balances active workloads when repaired equipment comes back online.
-- **Quantitative Resilience Index (0–100)**: Proprietary composite score benchmarking schedule robustness, tardiness mitigation, capacity retention, and energy stability.
+  - **Deadline Shifts**: Automatically reschedules when customer order deadlines compress (`J7`).
+  - **Machine Recovery**: Dynamically re-balances workloads when repaired equipment comes back online.
+- **Quantitative Resilience Index (0�100)**: A composite score benchmarking schedule robustness, tardiness mitigation, capacity retention, and energy stability.
 
-### 📊 6. Real-Time Shop-Floor Observability
-- **Dynamic Gantt Chart**: Color-coded operations by status (*On-Time*, *Reassigned*, *At Risk*, *Late*), hatched maintenance window overlays (`Maint 7-12m`), and rich hover inspection cards.
-- **Interactive Explanations**: Real-time feedback explaining why specific schedules were selected and how trade-offs were resolved.
+### ?? 5. AI Operations Copilot
+- Natural-language engineering Q&A over live factory state.
+- Powered by **Claude 3.5 Sonnet** (Anthropic) with a robust deterministic fallback engine.
+- Returns structured JSON answers with `answer`, `metrics`, `affected_entities`, and `recommended_action`.
+
+### ?? 6. ERP-Lite Coordination Layer
+- **Production Orders**: Tracks 6 active orders with customer, product, priority, deadline, progress, and risk level.
+- **Raw Material Inventory**: Manages 6 material SKUs with live status (`IN STOCK` / `LOW STOCK` / `OUT OF STOCK`).
+- **Machine Maintenance**: Health scores, last/next maintenance dates, runtime hours, and active issue logs per station.
+- **Capacity Matrix**: Per-machine scheduled load, available capacity, and utilization percentage per 8-hour shift.
+- **Attention Alerts**: Auto-generated CRITICAL/WARNING/INFO alerts for machine failures, at-risk orders, low stock, and bottlenecks.
+
+### ?? 7. Real-Time Shop-Floor Observability
+- **Dynamic Gantt Chart**: Color-coded operations by status (*On-Time*, *Reassigned*, *At Risk*, *Late*), hatched maintenance window overlays, and rich hover inspection cards.
+- **Factory Explorer**: Interactive machine station cards displaying live status (`RUNNING`, `STOPPED`, `MAINT`), real-time utilization, and 1-click failure simulation.
+- **Before-vs-After Comparison**: Side-by-side KPI deltas highlighting impact on Makespan, Tardiness, Energy Consumption, and Resilience.
+- **Explainable AI Decision Reports**: Audit summaries detailing exactly which jobs were rerouted and why.
 
 ---
 
-## 📁 **Project Architecture**
+## ??? Technologies Used
+
+| Layer | Technology | Purpose |
+|---|---|---|
+| **Backend** | Python 3.10+ | Core runtime |
+| **API Server** | FastAPI 0.121 + Uvicorn | REST API & static file serving |
+| **Data Validation** | Pydantic v2 | Request/response schema validation |
+| **Optimization** | Custom Multi-Objective Genetic Algorithm | Schedule optimization |
+| **Data Ingestion** | pandas + openpyxl | Excel parsing & data manipulation |
+| **Numerical** | NumPy | Array operations & fitness computation |
+| **Visualization** | Matplotlib | Gantt chart generation (server-side) |
+| **HTTP Client** | httpx | Internal service calls |
+| **Frontend** | Vanilla HTML5 + CSS3 + JavaScript (ES6+) | UI � no framework dependencies |
+| **Animation** | GSAP ScrollTrigger + HTML5 Canvas | Scroll-driven machine assembly animation |
+| **Testing** | pytest | Automated test suite (73 tests) |
+
+---
+
+## ?? AI Tools & Models
+
+FlowForge AI integrates AI at multiple levels:
+
+### Claude 3.5 Sonnet � Operations Copilot
+
+| Attribute | Detail |
+|---|---|
+| **Provider** | Anthropic |
+| **Model** | `claude-3-5-sonnet-20241022` |
+| **API Key** | `ANTHROPIC_API_KEY` (optional) |
+| **Role** | Engineering reasoning layer over structured factory state |
+| **Input** | Natural-language operator question + full factory state JSON |
+| **Output** | Structured JSON: `answer`, `metrics`, `affected_entities`, `recommended_action` |
+| **Fallback** | High-precision deterministic rule-based engine (no API key required) |
+
+**Design principle**: The Copilot *explains and reasons*; it never mutates schedules. The Genetic Algorithm optimizer is always the deterministic decision-maker for scheduling.
+
+**Supported question types** (handled by both Claude and the deterministic fallback):
+- Bottleneck identification (`"Which station is the bottleneck?"`)
+- Production risk analysis (`"Why is production at risk?"`)
+- Job rerouting explanations (`"Why was J7 moved to M5?"`)
+- Machine status queries (`"What is the status of M3?"`)
+- Energy consumption analysis (`"What is our current energy consumption?"`)
+- Inventory & material alerts (`"Are there any inventory shortages?"`)
+
+### Optional AI Integration Keys
+The following additional LLM keys are supported via `.env` for future integrations:
+```
+OPENAI_API_KEY=
+GEMINI_API_KEY=
+```
+
+> **Note**: FlowForge AI is fully functional without any AI API key. All scheduling, disruption handling, and resilience scoring run on pure algorithmic backends. The Copilot gracefully degrades to deterministic reasoning.
+
+---
+
+## ?? Project Structure
 
 ```
 FlowForge-AI/
-├── agents/
-│   ├── copilot/
-│   │   ├── __init__.py         # AI Copilot package export
-│   │   └── provider.py         # Claude 3.5 Sonnet & deterministic reasoning copilot
-│   ├── disruption/
-│   │   ├── engine.py           # Autonomous Disruption Engine & event loop
-│   │   └── types.py            # Disruption event data structures
-│   ├── erp/
-│   │   ├── __init__.py         # ERP-lite package export
-│   │   ├── engine.py           # ERP operations coordinator & state synchronizer
-│   │   └── models.py           # ProductionOrder, InventoryItem, MaintenanceRecord
-│   ├── factory/
-│   │   ├── excel_parser.py     # Smart Excel parser with fuzzy synonym matching
-│   │   ├── json_parser.py      # JSON Job Shop instance & maintenance parser
-│   │   ├── job.py              # Job model & operations representation
-│   │   ├── machine.py          # Machine model & failure simulation
-│   │   └── state.py            # Central FactoryState tracking & erp_state binding
-│   ├── resilience/
-│   │   ├── metrics.py          # Makespan, tardiness, utilization & energy metrics
-│   │   └── score.py            # Multi-dimensional resilience index (0-100)
-│   ├── ga_optimizer.py         # Multi-objective Genetic Algorithm
-│   ├── scheduler.py            # Precedence & downtime-aware schedulers (GA, SPT, EDD)
-│   ├── supervisor.py           # Factory coordination supervisor
-│   └── machine_sim.py          # Machine lifecycle simulator
-├── deployment/
-│   └── app.py                  # FastAPI server, REST routes & static frame streaming
-├── frontend/
-│   ├── index.html              # Apple-grade editorial dashboard with 9 ERP modules
-│   ├── styles.css              # Custom industrial theme, card layouts & animations
-│   ├── app.js                  # Frontend controller, canvas animator & Gantt renderer
-│   └── assets/machines/        # Machine hardware reference imagery
-├── frames/                     # Cleaned image frames for scroll canvas animation
-├── examples/
-│   ├── factory_data_template.xlsx  # Production Excel template
-│   └── job_shop_sample.json        # Sample JSON job shop problem instance
-├── scripts/
-│   └── smoke_test.py           # Comprehensive 18-step end-to-end smoke test suite
-├── tests/
-│   ├── test_erp_modules.py     # Unit tests for ERP models, capacity & AI Copilot
-│   ├── test_foundation.py      # Factory, GA, resilience & disruption test suite
-│   ├── test_excel_parser.py    # Excel workbook ingestion & fuzzy matching tests
-│   └── test_json_parser.py     # JSON parser & maintenance window tests
-├── pytest.ini                  # Pytest configuration
-├── requirements.txt            # Project dependencies
-└── .env.example                # Sample environment variables
++-- agents/
+�   +-- copilot/
+�   �   +-- __init__.py
+�   �   +-- provider.py         # AI Operations Copilot (Claude 3.5 Sonnet + deterministic fallback)
+�   +-- disruption/
+�   �   +-- engine.py           # Autonomous Disruption Engine & event loop
+�   �   +-- types.py            # Disruption event data structures
+�   +-- erp/
+�   �   +-- engine.py           # ERP-lite Coordinator (orders, inventory, maintenance, capacity)
+�   �   +-- models.py           # ProductionOrder, InventoryItem, MaintenanceRecord models
+�   +-- factory/
+�   �   +-- excel_parser.py     # Smart Excel parser with fuzzy synonym matching
+�   �   +-- json_parser.py      # JSON Job Shop instance & maintenance parser
+�   �   +-- job.py              # Job model & operations representation
+�   �   +-- machine.py          # Machine model & failure simulation
+�   �   +-- state.py            # Central FactoryState tracking
+�   +-- resilience/
+�   �   +-- metrics.py          # Makespan, tardiness, utilization & energy metrics
+�   �   +-- score.py            # Multi-dimensional resilience index (0�100)
+�   +-- ga_optimizer.py         # Multi-objective Genetic Algorithm optimizer
+�   +-- job_intake.py           # Job intake & normalization layer
+�   +-- machine_sim.py          # Machine lifecycle simulator
+�   +-- scheduler.py            # Precedence & downtime-aware schedulers (GA, SPT, EDD)
+�   +-- supervisor.py           # Factory coordination supervisor
+�
++-- deployment/
+�   +-- app.py                  # FastAPI server, REST routes & static frame streaming
+�
++-- evaluation/
+�   +-- evaluator.py            # Schedule quality evaluator & benchmark scoring
+�
++-- frontend/
+�   +-- index.html              # Apple-grade editorial dashboard markup
+�   +-- styles.css              # Custom light industrial theme & canvas styles
+�   +-- app.js                  # Frontend controller, canvas animator & Gantt renderer
+�   +-- assets/machines/        # Machine hardware reference imagery
+�
++-- memory/
+�   +-- memory_bank.py          # Factory memory bank for state persistence
+�
++-- tools/
+�   +-- csv_tool.py             # CSV export utility
+�   +-- gantt.py                # Gantt chart rendering tool
+�
++-- scripts/
+�   +-- generate_template.py    # Excel production schedule template generator
+�   +-- remove_watermark.py     # Animation frame preprocessing utility
+�   +-- security_check.py       # API key & environment security scanner
+�   +-- show_gantt.py           # Local Gantt chart preview script
+�   +-- smoke_test.py           # End-to-end smoke test runner
+�
++-- tests/
+�   +-- test_foundation.py      # Factory, GA, resilience & disruption test suite
+�   +-- test_excel_parser.py    # Excel workbook ingestion & fuzzy matching tests
+�   +-- test_json_parser.py     # JSON parser & maintenance window tests
+�
++-- examples/
+�   +-- factory_data_template.xlsx  # Production Excel template
+�   +-- job_shop_sample.json        # Sample JSON job shop problem instance
+�
++-- data/                       # Runtime data directory
++-- Animation-jpg/              # Source animation frames (pre-processed)
++-- Sample DATA - 1.xlsx        # Sample production dataset 1
++-- Sample DATA - 2.xlsx        # Sample production dataset 2
++-- Sample DATA - 3.xlsx        # Sample production dataset 3
++-- .env.example                # Environment variable template
++-- .gitignore
++-- requirements.txt            # Python dependencies
++-- pytest.ini                  # pytest configuration
++-- DESIGN.md                   # UI/UX design specification
++-- PRD.md                      # Product Requirements Document
++-- LICENSE                     # MIT License
 ```
 
 ---
 
-## 📋 **Supported Data Formats**
+## ?? Supported Data Formats
 
 FlowForge AI supports direct file upload via drag-and-drop or file picker:
 
 ### 1. JSON Job Shop Specification (`.json`)
-Supports custom and benchmark job shop problems with planned maintenance periods:
+Supports custom and benchmark JSSP instances with planned maintenance periods:
 ```json
 {
   "machines": [
@@ -149,134 +263,227 @@ Supports custom and benchmark job shop problems with planned maintenance periods
 
 ### 2. Production Excel Workbook (`.xlsx`, `.xls`)
 Accepts two formats:
-1. **Multi-Sheet Workbook**: Contains a `Jobs` sheet (Job ID, Processing Time, Deadline, Priority, Machine) and a `Machines` sheet (Machine ID, Power kW, Idle Power kW).
-2. **Single-Sheet Table**: Upload any flat production schedule table; FlowForge automatically synthesizes machine models and maps ambiguous column headers (e.g. `Order #` ➔ `job_id`, `Duration` ➔ `processing_time`).
+1. **Multi-Sheet Workbook**: A `Jobs` sheet (Job ID, Processing Time, Deadline, Priority, Machine) and an optional `Machines` sheet (Machine ID, Power kW, Idle Power kW).
+2. **Single-Sheet Table**: Any flat production schedule table. FlowForge auto-maps ambiguous column headers using fuzzy synonym matching (e.g., `Order #` ? `job_id`, `Duration` ? `processing_time`).
+
+Three sample datasets are included in the project root (`Sample DATA - 1.xlsx`, `Sample DATA - 2.xlsx`, `Sample DATA - 3.xlsx`).
 
 ---
 
-## 🚀 **Getting Started**
+## ?? Setup & Installation
 
 ### Prerequisites
-- Python 3.10 or higher (Python 3.11+ recommended)
-- pip & virtual environment tool
+- Python **3.10** or higher
+- `pip` & virtual environment tool
+- Git
 
-### 1. Clone & Setup Virtual Environment
+### 1. Clone the Repository
 ```bash
 git clone https://github.com/ershehzan/FlowForge-AI.git
 cd FlowForge-AI
+```
 
-# Create and activate virtual environment
+### 2. Create & Activate a Virtual Environment
+```bash
 python -m venv venv
 
-# Windows:
+# Windows
 venv\Scripts\activate
 
-# macOS / Linux:
+# macOS / Linux
 source venv/bin/activate
 ```
 
-### 2. Install Dependencies
+### 3. Install Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. (Optional) Configure Environment Variables
-Copy `.env.example` to `.env` to configure optional settings:
+### 4. Configure Environment Variables
 ```bash
+# Copy the example file
 cp .env.example .env
-```
-To enable Claude 3.5 Sonnet for the AI Copilot, set your Anthropic API key in `.env`:
-```env
-ANTHROPIC_API_KEY=sk-ant-...
-```
-> *Note: If no API key is set, FlowForge automatically runs in **deterministic rule-based reasoning mode**, providing complete offline capability.*
 
-### 4. Run the Automated Test Suite
+# Edit .env and add your API keys (all optional � see Environment Configuration below)
+```
+
+### 5. Run the Automated Test Suite
 ```bash
 pytest
 ```
-*All 80 automated unit and integration tests will execute across factory models, genetic algorithms, disruption handling, Excel parsing, JSON benchmark scheduling, ERP models, and AI Copilot reasoning.*
+All 73 automated tests should pass across factory models, Genetic Algorithm correctness, disruption handling, Excel parsing, and JSON scheduling.
 
-### 5. Launch the Server
+### 6. Launch the Server
 ```bash
 uvicorn deployment.app:app --reload --port 8000
 ```
 
-Open your browser and navigate to:
+Open your browser:
 - **Interactive UI**: [http://127.0.0.1:8000](http://127.0.0.1:8000)
-- **FastAPI Interactive Swagger Docs**: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-
-### 6. Run Comprehensive Smoke Tests (Optional)
-While the server is running, you can execute the end-to-end smoke test suite verifying all 18 API workflows:
-```bash
-python scripts/smoke_test.py
-```
+- **Swagger API Docs**: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 
 ---
 
-## 📡 **REST API Reference**
+## ?? Environment Configuration
 
-### Core & Factory Operations
+Copy `.env.example` to `.env` and configure the following variables:
+
+```env
+# Application Server Settings
+HOST=127.0.0.1
+PORT=8000
+ENVIRONMENT=development   # development | production
+
+# AI Copilot � Optional (system works without this key)
+ANTHROPIC_API_KEY=sk-ant-...
+
+# Future LLM integrations � Optional
+OPENAI_API_KEY=
+GEMINI_API_KEY=
+
+# Optional API Base URL (leave empty for same-origin requests)
+API_BASE_URL=
+```
+
+> **No API keys are required** for full scheduling and disruption-handling functionality. API keys only enable the Claude-powered Copilot; without them, the system automatically uses the built-in deterministic reasoning engine.
+
+---
+
+## ??? Usage
+
+### Loading Factory Data
+1. Navigate to the **Factory Data** section on the dashboard.
+2. Drag-and-drop or select a `.xlsx`, `.xls`, or `.json` file.
+3. Click **Run FlowForge Optimization** to compute the optimal schedule.
+4. Alternatively, click **Load Sample JSON** to use the built-in JSSP benchmark.
+
+### Simulating Disruptions
+Use the **Scenarios** panel or the **Factory Explorer** machine cards to:
+- **Fail a machine** � Click `?? Fail M3` or toggle any machine card.
+- **Inject a rush order** � Click `? Urgent Job` to insert priority job `J99`.
+- **Shift a deadline** � Trigger a deadline compression on job `J7`.
+- **Recover a machine** � Click `? Recover` to bring a station back online.
+
+### Querying the AI Copilot
+Type engineering questions into the **Copilot** panel, for example:
+- *"Which station is the current bottleneck?"*
+- *"Why was J7 reassigned to M5?"*
+- *"What is our current energy consumption?"*
+- *"Are there any inventory shortages?"*
+
+### Resetting the Factory
+Click the **`?? DISRUPTED`** status badge in the top-right corner or the **`? Reset Factory`** button to restore all machines to `?? OPERATIONAL` state.
+
+---
+
+## ?? REST API Reference
+
 | Endpoint | Method | Description |
 |---|---|---|
 | `/` | `GET` | Serves the main FlowForge editorial web application |
 | `/frames/` | `GET` | Lists and streams frame images for canvas scroll animation |
 | `/frames/manifest.json` | `GET` | Auto-detects total available frame count for the animation engine |
 | `/factory/initialize` | `POST` | Re-initializes factory state and computes baseline schedule |
-| `/factory/state` | `GET` | Retrieves real-time factory state, machine fleet, and ERP state |
+| `/factory/state` | `GET` | Retrieves real-time factory state, machine statuses, and schedules |
 | `/factory/upload` | `POST` | Ingests `.xlsx`, `.xls`, or `.json` files, optimizes schedule & returns metrics |
-| `/disruptions` | `POST` | Injects disruption events (`machine_failure`, `urgent_job`, `deadline_change`, `job_cancellation`, `machine_recovery`) and triggers autonomous recovery |
+| `/factory/reset` | `POST` | Resets factory floor to pristine baseline operational state |
+| `/disruptions` | `POST` | Injects disruption events and triggers autonomous recovery |
 | `/metrics` | `GET` | Returns current schedule metrics (makespan, tardiness, energy, utilization) |
-| `/resilience` | `GET` | Computes multi-dimensional factory resilience index (0–100) |
-| `/factory/reset` | `POST` | Resets factory floor and ERP models to pristine baseline operational state |
+| `/resilience` | `GET` | Computes multi-dimensional factory resilience index (0�100) |
+| `/erp` | `GET` | Returns full ERP-lite state (orders, inventory, maintenance, capacity, alerts) |
+| `/copilot` | `POST` | Queries the AI Operations Copilot with a natural-language question |
 
-### ERP-Lite Operations
-| Endpoint | Method | Description |
-|---|---|---|
-| `/erp/state` | `GET` | Returns full ERP-lite operational state (orders, inventory, maintenance, capacity) |
-| `/orders` | `GET` | Returns list of production orders with deadline risk and progress tracking |
-| `/inventory` | `GET` | Returns raw material inventory balances, stockout alerts, and reorder levels |
-| `/maintenance` | `GET` | Returns machine health indices (0-100%), MTBF, and maintenance records |
-| `/capacity` | `GET` | Returns machine fleet capacity matrix (scheduled load, utilization, remaining hours) |
-| `/analytics` | `GET` | Returns comparative metrics and resilience scores across Baseline, Disrupted, and Recovery |
-| `/history` | `GET` | Returns historical disruption audit log and explainable AI decision reports |
-
-### AI Operations Copilot
-| Endpoint | Method | Description |
-|---|---|---|
-| `/copilot/query` | `POST` | Analyzes operational questions against live factory state using Claude 3.5 Sonnet or deterministic fallback |
+### Disruption Event Types (`POST /disruptions`)
+```json
+{
+  "event_type": "machine_failure",   // machine_failure | urgent_job | deadline_change | machine_recovery
+  "machine_id": "M3",               // for machine_failure / machine_recovery
+  "job_id": "J99",                  // for urgent_job / deadline_change
+  "new_deadline": 80                // for deadline_change
+}
+```
 
 ---
 
-## 🧪 **Disruption & Resilience Walkthrough**
+## ?? Running Tests
+
+FlowForge AI has a comprehensive automated test suite using **pytest**.
+
+```bash
+# Run all 73 tests
+pytest
+
+# Run with verbose output
+pytest -v
+
+# Run a specific test module
+pytest tests/test_foundation.py
+pytest tests/test_excel_parser.py
+pytest tests/test_json_parser.py
+```
+
+### Test Coverage
+
+| Module | Covers |
+|---|---|
+| `test_foundation.py` | Factory model, GA optimizer, resilience scoring, disruption engine |
+| `test_excel_parser.py` | Workbook parsing, fuzzy header matching, single-sheet conversion |
+| `test_json_parser.py` | JSSP parsing, maintenance windows, multi-operation precedence |
+
+---
+
+## ?? Scripts & Utilities
+
+Helper scripts are located in the `scripts/` directory:
+
+| Script | Purpose |
+|---|---|
+| `generate_template.py` | Generates a blank Excel production schedule template |
+| `show_gantt.py` | Renders a local Gantt chart preview from current factory state |
+| `smoke_test.py` | End-to-end smoke test: starts server and validates all major API endpoints |
+| `security_check.py` | Scans environment and codebase for exposed API keys or unsafe configurations |
+| `remove_watermark.py` | Preprocesses animation frame images for clean canvas playback |
+
+```bash
+# Generate a fresh Excel template
+python scripts/generate_template.py
+
+# Run end-to-end smoke tests
+python scripts/smoke_test.py
+```
+
+---
+
+## ?? Disruption & Resilience Walkthrough
 
 Try the following interactive flows directly from the dashboard:
 
-1. **Test Machine Breakdown**:
-   - Scroll to **Scenarios** and click **`🔴 Fail M3`** (or click a machine card in **Shop Floor**).
-   - Watch the status badge switch to `🔴 DISRUPTED`.
-   - The engine automatically routes tasks away from `M3` and generates a recovery schedule.
-2. **Test Rush Order Injection**:
-   - Click **`⚡ Urgent Job`** to introduce priority order `J99` with a tight delivery window.
+1. **Machine Breakdown**:
+   - Scroll to **Scenarios** ? click **`?? Fail M3`** (or click the M3 card in **Factory Explorer**).
+   - The status badge switches to `?? DISRUPTED`.
+   - The engine automatically reroutes tasks away from M3 and computes a recovery schedule.
+
+2. **Rush Order Injection**:
+   - Click **`? Urgent Job`** to introduce priority order `J99` with a tight delivery window.
    - Observe the Gantt chart slotting `J99` ahead of lower-priority jobs while preserving deadlines.
-3. **Inspect ERP Operations**:
-   - Scroll to **Production** to view active orders and risk status.
-   - Review **Inventory** for material availability and click **Reorder** to simulate stock replenishment.
-   - Check **Maintenance** for machine health degradation and upcoming service windows.
-4. **Ask the AI Operations Copilot**:
-   - Navigate to **AI Copilot** and click a suggested prompt (e.g., *"Why was J7 moved to M5?"* or *"What is our current capacity bottleneck?"*).
-   - View quantitative root-cause explanations and recommended engineering actions.
-5. **Review Audit Trail & Decision Reports**:
-   - Scroll to **History** to review the chronologically logged disruption events and side-by-side KPI deltas.
-6. **1-Click Reset to Operational**:
-   - Click the top-right **`🔴 DISRUPTED`** badge or click **`↺ Reset Factory`** to restore all machines and ERP models to `🟢 OPERATIONAL`.
+
+3. **Maintenance & Precedence (JSON)**:
+   - In **Factory Data** ? click **Load Sample JSON** ? click **Run FlowForge Optimization**.
+   - Notice hatched maintenance blocks (`Maint 7�12m`) on `M0` and strictly sequenced operations across `M0 ? M1 ? M2`.
+
+4. **1-Click Reset**:
+   - Click the **`?? DISRUPTED`** badge or **`? Reset Factory`** to restore all machines to `?? OPERATIONAL`.
 
 ---
 
-## 🏆 **Authors & License**
+## ?? Authors & License
 
-**Shehzan Khan**  
-**Shorya Agrawal**  
-*FlowForge AI — Autonomous Production Resilience & Manufacturing Operations*
+**Shehzan Khan** � **Shorya Agrawal**
 
-Released under the **MIT License**.
+*FlowForge AI � Autonomous Production Resilience & Optimization*
+
+Released under the **[MIT License](./LICENSE)**.
+
+---
+
+> Built with ? by engineers who believe the factory should always adapt � not just survive.
