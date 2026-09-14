@@ -1,0 +1,67 @@
+{
+  "machines": [
+    {
+      "machine_id": 0,
+      "unavailable_periods": []
+    },
+    {
+      "machine_id": 1,
+      "unavailable_periods": [
+        [7, 12]
+      ]
+    },
+    {
+      "machine_id": 2,
+      "unavailable_periods": []
+    }
+  ],
+  "jobs": [
+    {
+      "job_id": 0,
+      "due_date": 15,
+      "priority": 2,
+      "operations": [
+        {"machine_id": 0, "processing_time": 3},
+        {"machine_id": 1, "processing_time": 2},
+        {"machine_id": 2, "processing_time": 2}
+      ]
+    },
+    {
+      "job_id": 1,
+      "due_date": 20,
+      "priority": 3,
+      "operations": [
+        {"machine_id": 0, "processing_time": 2},
+        {"machine_id": 2, "processing_time": 1},
+        {"machine_id": 1, "processing_time": 4}
+      ]
+    },
+    {
+      "job_id": 2,
+      "due_date": 25,
+      "priority": 2,
+      "operations": [
+        {"machine_id": 1, "processing_time": 4},
+        {"machine_id": 0, "processing_time": 3}
+      ]
+    },
+    {
+      "job_id": 3,
+      "due_date": 30,
+      "priority": 1,
+      "operations": [
+        {"machine_id": 2, "processing_time": 8},
+        {"machine_id": 0, "processing_time": 5}
+      ]
+    },
+    {
+      "job_id": 4,
+      "due_date": 10,
+      "priority": 2,
+      "operations": [
+        {"machine_id": 1, "processing_time": 2},
+        {"machine_id": 2, "processing_time": 2}
+      ]
+    }
+  ]
+}

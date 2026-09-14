@@ -31,7 +31,7 @@ SYNONYMS_MACHINE_STATUS = ["status", "state", "condition", "availability"]
 
 SYNONYMS_JOB_ID = ["job_id", "job id", "job", "job_name", "task_id", "task id", "task", "order_id", "order id", "order", "part_number", "part_no", "part no", "part", "work_order", "wo", "item", "id", "code"]
 SYNONYMS_DURATION = ["processing_time", "processing time", "duration", "process_time", "process time", "cycle_time", "cycle time", "run_time", "run time", "time_mins", "time (min)", "time (mins)", "time", "mins", "minutes", "hours"]
-SYNONYMS_ELIGIBLE = ["eligible_machines", "eligible machines", "machines", "eligible", "allowed_machines", "allowed machines", "stations", "lines", "cell", "assigned_machine"]
+SYNONYMS_ELIGIBLE = ["eligible_machines", "eligible machines", "machines", "machine", "eligible", "allowed_machines", "allowed machines", "allowed_station", "allowed station", "stations", "station", "lines", "line", "cell", "cells", "assigned_machine", "assigned machine", "assigned_station", "workstation"]
 SYNONYMS_PRIORITY = ["priority", "urgency", "rank", "importance", "level", "prio"]
 SYNONYMS_DEADLINE = ["deadline", "due_date", "due date", "due", "target_date", "target date", "finish_by", "delivery"]
 
@@ -43,7 +43,7 @@ def _match_synonym(header_text, synonym_list):
     clean = re.sub(r'[^a-z0-9]', '', str(header_text).lower())
     for syn in synonym_list:
         clean_syn = re.sub(r'[^a-z0-9]', '', syn.lower())
-        if clean == clean_syn or clean_syn in clean:
+        if clean == clean_syn or clean_syn in clean or (len(clean) >= 3 and clean in clean_syn):
             return True
     return False
 
@@ -107,6 +107,16 @@ class ExcelParser:
 
             if not self.errors:
                 return self._build_success_result(machines, jobs, disruptions, filename, auto_converted=False)
+            else:
+                return self._build_error_result(filename)
+
+        if has_std_machines and not has_std_jobs:
+            self.add_error("Workbook", 0, "Jobs", "Missing required sheet: 'Jobs'")
+            return self._build_error_result(filename)
+
+        if has_std_jobs and not has_std_machines:
+            self.add_error("Workbook", 0, "Machines", "Missing required sheet: 'Machines'")
+            return self._build_error_result(filename)
 
         # Reset errors and attempt Smart Auto-Conversion
         self.errors = []
@@ -139,10 +149,17 @@ class ExcelParser:
                 jobs_sheet = sheet
                 self.transformations.append(f"Mapped sheet '{sheet_name}' -> Jobs dataset")
 
-        # Fallback: if single sheet or unmapped, pick active sheet as Jobs sheet
+        # Fallback: if single sheet or unmapped, pick active sheet as Jobs sheet (if not already machines_sheet)
         if not jobs_sheet:
-            jobs_sheet = workbook.active
-            self.transformations.append(f"Defaulted sheet '{jobs_sheet.title}' -> Jobs dataset")
+            for s_name in sheet_names:
+                s = workbook[s_name]
+                if s != machines_sheet:
+                    jobs_sheet = s
+                    self.transformations.append(f"Defaulted sheet '{jobs_sheet.title}' -> Jobs dataset")
+                    break
+            if not jobs_sheet and not machines_sheet:
+                jobs_sheet = workbook.active
+                self.transformations.append(f"Defaulted sheet '{jobs_sheet.title}' -> Jobs dataset")
 
         # 2. Parse Jobs sheet using Fuzzy Mapping
         jobs, referenced_machines = self._fuzzy_parse_jobs(jobs_sheet)

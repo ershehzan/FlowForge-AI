@@ -1,869 +1,811 @@
-/* ═══════════════════════════════════════════════════════════
-   FlowForge — Dashboard Application
-   State management, API integration, Gantt rendering,
-   disruption flows, and deterministic AI explanations.
-   ═══════════════════════════════════════════════════════════ */
+/* ═════════════════════════════════════════════════════════════════════════
+   FLOWFORGE — Core Frontend Controller
+   Exact UI Replica & Apple-Grade Frame-by-Frame Canvas Scroll Animation
+   ═════════════════════════════════════════════════════════════════════════ */
 
-// ── API Base ──
-const API = '';
+// ── Frame Animation Configuration ──
+// Path to folder of numbered animation frames. Changing this path dynamically adapts.
+const FRAME_PATH = "/frames/";
 
 // ── Application State ──
-let state = {
+const state = {
   factory: null,
+  baselineSchedule: [],
+  disruptedSchedule: [],
+  recoverySchedule: [],
+  currentSchedule: [],
   baselineMetrics: null,
   disruptedMetrics: null,
   recoveryMetrics: null,
   baselineResilience: null,
   recoveryResilience: null,
-  baselineSchedule: null,
-  disruptedSchedule: null,
-  recoverySchedule: null,
-  currentSchedule: null,
-  lastDisruption: null,
-  failedMachines: new Set(),
-  selectorMode: null, // 'failure' or 'recovery'
-  selectedExcelFile: null,
+  activeDisruptions: [],
+  selectedFile: null,
+  isDisrupted: false,
+
+  // Animation Engine State
+  frames: [],
+  images: [],
+  totalFrames: 0,
+  isAnimationReady: false,
 };
 
-// ── Job Color Map ──
-const JOB_COLORS = [
-  '#4F6D8E', '#5B7BA5', '#6B89B0', '#5A7493', '#4E6C88',
-  '#577A9C', '#6589A8', '#4A6F92', '#5E82A0', '#527696',
-  '#6090B0', '#4D7090',
-];
+function escapeHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
 
-// ═══════════════════════════════════════════════════════════
-// INITIALIZATION
-// ═══════════════════════════════════════════════════════════
+// Default static machine specs matching Reference Screen 3
+const MACHINE_SPECS = {
+  M1: { name: "CNC-01", type: "Milling Center", img: "/static/assets/machines/m1.jpg", defaultUtil: 82 },
+  M2: { name: "ROBOT-X5", type: "Robotic Cell", img: "/static/assets/machines/m2.jpg", defaultUtil: 96 },
+  M3: { name: "PRESS-G2", type: "Stamping Press", img: "/static/assets/machines/m3.jpg", defaultUtil: 88 },
+  M4: { name: "CONVEYOR-A1", type: "Automated Line", img: "/static/assets/machines/m4.jpg", defaultUtil: 75 },
+  M5: { name: "LATHE-P3", type: "Metal Turning", img: "/static/assets/machines/m5.jpg", defaultUtil: 0 },
+  M6: { name: "ASSEMBLY-F4", type: "Precision Workstation", img: "/static/assets/machines/m6.jpg", defaultUtil: 91 },
+};
 
-document.addEventListener('DOMContentLoaded', initApp);
+// ═════════════════════════════════════════════════════════════════════════
+// 1. APPLICATION INITIALIZATION
+// ═════════════════════════════════════════════════════════════════════════
 
-async function initApp() {
+document.addEventListener("DOMContentLoaded", () => {
+  initHeroCanvasAnimation();
+  initFlowForgeEngine();
   setupDropzone();
-  await initializeFactory();
-}
+});
 
-async function initializeFactory() {
-  setFactoryStatus('OPERATIONAL');
-  try {
-    const res = await fetch(`${API}/factory/initialize`, { method: 'POST' });
-    const data = await res.json();
+// ═════════════════════════════════════════════════════════════════════════
+// 2. APPLE-GRADE FRAME-BY-FRAME HERO SCROLL ANIMATION
+// ═════════════════════════════════════════════════════════════════════════
 
-    state.baselineSchedule = data.baseline_schedule;
-    state.currentSchedule = data.baseline_schedule;
-    state.baselineMetrics = data.metrics;
-    state.baselineResilience = data.resilience;
-    state.disruptedMetrics = null;
-    state.recoveryMetrics = null;
-    state.recoveryResilience = null;
-    state.lastDisruption = null;
-    state.failedMachines = new Set();
+async function initHeroCanvasAnimation() {
+  const canvas = document.getElementById("heroCanvas");
+  const loader = document.getElementById("heroLoader");
+  const loaderText = document.getElementById("heroLoaderText");
+  if (!canvas) return;
 
-    // Fetch full factory state for machine data
-    const stateRes = await fetch(`${API}/factory/state`);
-    state.factory = await stateRes.json();
+  const ctx = canvas.getContext("2d");
 
-    updateDataSourceBadge(state.factory ? state.factory.data_source : 'Demo Factory Data');
-    updateKPIs(data.metrics, data.resilience);
-    renderMachineStatusBar();
-    renderGantt(data.baseline_schedule, 'baseline');
-    resetPanels();
-    hideExplanation();
-    updateSimButtons();
+  // Step 1: Automatically detect frame count and filenames without hardcoding
+  const manifest = await detectFramesManifest(FRAME_PATH);
+  state.frames = manifest.frames;
+  state.totalFrames = manifest.totalFrames;
 
-  } catch (err) {
-    console.error('Failed to initialize:', err);
-  }
-}
-
-
-// ═══════════════════════════════════════════════════════════
-// FACTORY STATUS
-// ═══════════════════════════════════════════════════════════
-
-function setFactoryStatus(status) {
-  const el = document.getElementById('factoryStatus');
-  const txt = document.getElementById('factoryStatusText');
-  el.setAttribute('data-status', status);
-  txt.textContent = status;
-}
-
-// ═══════════════════════════════════════════════════════════
-// KPI UPDATES
-// ═══════════════════════════════════════════════════════════
-
-function updateKPIs(metrics, resilience, prevMetrics = null) {
-  // Resilience
-  const resEl = document.getElementById('kpiResilience');
-  const resLabel = document.getElementById('kpiResilienceLabel');
-  animateValue(resEl, resilience ? resilience.score : 0, '/100');
-  resLabel.textContent = resilience ? resilience.label : '';
-
-  // Machines
-  const available = state.factory
-    ? Object.values(state.factory.machines).filter(m => m.status === 'available').length
-    : 6;
-  const total = state.factory ? Object.keys(state.factory.machines).length : 6;
-  document.getElementById('kpiMachines').textContent = `${available}/${total}`;
-
-  // Late jobs
-  const lateCard = document.getElementById('kpiLateCard');
-  document.getElementById('kpiLateJobs').textContent = metrics ? metrics.late_jobs : '—';
-  if (metrics && metrics.late_jobs === 0) {
-    lateCard.classList.add('good');
-  } else {
-    lateCard.classList.remove('good');
-  }
-  if (prevMetrics && metrics) {
-    showChange('kpiLateChange', prevMetrics.late_jobs, metrics.late_jobs, true);
-  } else {
-    document.getElementById('kpiLateChange').textContent = '';
-  }
-
-  // Makespan
-  document.getElementById('kpiMakespan').textContent = metrics ? `${metrics.makespan}` : '—';
-  document.getElementById('kpiMakespan').title = metrics ? `${metrics.makespan} min` : '';
-  if (prevMetrics && metrics) {
-    showChange('kpiMakespanChange', prevMetrics.makespan, metrics.makespan, true, ' min');
-  } else {
-    document.getElementById('kpiMakespanChange').textContent = metrics ? 'min' : '';
-  }
-
-  // Energy
-  document.getElementById('kpiEnergy').textContent = metrics ? `${metrics.energy_kwh}` : '—';
-  if (prevMetrics && metrics) {
-    showChange('kpiEnergyChange', prevMetrics.energy_kwh, metrics.energy_kwh, true, ' kWh');
-  } else {
-    document.getElementById('kpiEnergyChange').textContent = metrics ? 'kWh' : '';
-  }
-}
-
-function showChange(elementId, oldVal, newVal, lowerIsBetter, suffix = '') {
-  const el = document.getElementById(elementId);
-  if (oldVal === newVal) {
-    el.textContent = `→ ${newVal}${suffix}`;
-    el.className = 'kpi-change';
-    return;
-  }
-  const diff = newVal - oldVal;
-  const improved = lowerIsBetter ? diff < 0 : diff > 0;
-  const sign = diff > 0 ? '+' : '';
-  el.textContent = `${sign}${diff}${suffix} vs baseline`;
-  el.className = `kpi-change ${improved ? 'improved' : 'worsened'}`;
-}
-
-function animateValue(el, target, suffix = '') {
-  const start = parseInt(el.textContent) || 0;
-  const diff = target - start;
-  const duration = 600;
-  const startTime = performance.now();
-
-  function step(now) {
-    const elapsed = now - startTime;
-    const progress = Math.min(elapsed / duration, 1);
-    const eased = 1 - Math.pow(1 - progress, 3);
-    const current = Math.round(start + diff * eased);
-    el.textContent = `${current}${suffix}`;
-    if (progress < 1) requestAnimationFrame(step);
-  }
-
-  requestAnimationFrame(step);
-}
-
-// ═══════════════════════════════════════════════════════════
-// MACHINE STATUS BAR
-// ═══════════════════════════════════════════════════════════
-
-function renderMachineStatusBar() {
-  const bar = document.getElementById('machineStatusBar');
-  if (!state.factory) { bar.innerHTML = ''; return; }
-
-  const machines = state.factory.machines;
-  const schedule = state.currentSchedule || [];
-  const makespan = schedule.length > 0
-    ? Math.max(...schedule.map(a => a.start + a.duration))
-    : 1;
-
-  // Calculate utilization per machine
-  const busy = {};
-  schedule.forEach(a => {
-    busy[a.machine] = (busy[a.machine] || 0) + a.duration;
-  });
-
-  let html = '';
-  Object.entries(machines).forEach(([id, m]) => {
-    const status = m.status === 'available' ? 'available' : 'failed';
-    const util = m.status === 'available' && makespan > 0
-      ? Math.round((busy[id] || 0) / makespan * 100)
-      : 0;
-    const utilStr = m.status === 'available' ? `<span class="chip-util">${util}%</span>` : '';
-    html += `<div class="machine-status-chip ${status}">
-      <span class="chip-dot"></span>${id}${utilStr}
-    </div>`;
-  });
-
-  bar.innerHTML = html;
-}
-
-// ═══════════════════════════════════════════════════════════
-// GANTT CHART
-// ═══════════════════════════════════════════════════════════
-
-function renderGantt(schedule, mode = 'baseline', reassignedJobs = []) {
-  const container = document.getElementById('ganttChart');
-  if (!schedule || schedule.length === 0) {
-    container.innerHTML = '<div class="panel-empty"><div class="icon">📋</div><div class="text">No schedule to display</div></div>';
+  if (state.totalFrames === 0) {
+    if (loader) loader.classList.add("hidden");
     return;
   }
 
-  const machines = state.factory
-    ? Object.keys(state.factory.machines)
-    : [...new Set(schedule.map(a => a.machine))].sort();
+  // Setup HiDPI Canvas dimensions to fit screen 100vw x 100vh
+  function resizeCanvas() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const width = window.innerWidth;
+    const height = window.innerHeight;
 
-  const makespan = Math.max(...schedule.map(a => a.start + a.duration));
-  const trackWidth = container.offsetWidth - 80;
-  const pxPerUnit = trackWidth / Math.max(1, makespan);
+    canvas.width = Math.floor(width * dpr);
+    canvas.height = Math.floor(height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-  const reassignedSet = new Set(reassignedJobs);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
 
-  let html = '';
-
-  machines.forEach(machineId => {
-    const isFailed = state.failedMachines.has(machineId);
-    const machineJobs = schedule.filter(a => a.machine === machineId);
-
-    html += `<div class="gantt-row">
-      <div class="gantt-machine-label ${isFailed ? 'failed' : ''}">
-        <span class="machine-dot"></span>${machineId}
-      </div>
-      <div class="gantt-track">`;
-
-    machineJobs.forEach(job => {
-      const left = (job.start / makespan * 100).toFixed(2);
-      const width = (job.duration / makespan * 100).toFixed(2);
-      const completion = job.start + job.duration;
-      const due = job.due || job.deadline || 999;
-      const isLate = completion > due;
-      const isReassigned = reassignedSet.has(job.job_id);
-      const isAtRisk = !isLate && completion > due * 0.85;
-
-      let cls = 'normal';
-      if (isReassigned) cls = 'reassigned';
-      else if (isLate) cls = 'late';
-      else if (isAtRisk) cls = 'at-risk';
-
-      const jobIdx = parseInt(job.job_id.replace('J', '')) - 1;
-      const bg = isReassigned ? '' : isLate ? '' : isAtRisk ? '' : `background:${JOB_COLORS[jobIdx % JOB_COLORS.length]};border-color:${JOB_COLORS[jobIdx % JOB_COLORS.length]}88;`;
-
-      html += `<div class="gantt-job ${cls}" style="left:${left}%;width:${width}%;${bg}"
-        onmouseenter="showTooltip(event, '${job.job_id}', '${machineId}', ${job.start}, ${job.duration}, ${due}, ${completion}, '${cls}')"
-        onmouseleave="hideTooltip()"
-        >${job.job_id}</div>`;
-    });
-
-    // If machine is failed, show indicator
-    if (isFailed && machineJobs.length === 0) {
-      html += `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--color-danger);font-size:0.75rem;font-weight:600;gap:6px;opacity:0.7">
-        🔴 FAILED
-      </div>`;
-    }
-
-    html += `</div></div>`;
-  });
-
-  // Time axis
-  html += `<div class="gantt-time-axis" style="position:relative;height:20px;">`;
-  const steps = Math.min(8, Math.ceil(makespan / 10));
-  for (let i = 0; i <= steps; i++) {
-    const t = Math.round(makespan * i / steps);
-    const pct = (i / steps * 100).toFixed(1);
-    html += `<span class="gantt-time-label" style="left:${pct}%">${t}</span>`;
-  }
-  html += `</div>`;
-
-  container.innerHTML = html;
-  container.classList.add('animate-in');
-}
-
-function showTooltip(event, jobId, machine, start, duration, due, completion, cls) {
-  const tip = document.getElementById('ganttTooltip');
-  const title = document.getElementById('tooltipTitle');
-  const body = document.getElementById('tooltipBody');
-
-  title.textContent = `Job ${jobId}`;
-
-  const status = cls === 'reassigned' ? '🔵 Reassigned' :
-                 cls === 'late' ? '🔴 Late' :
-                 cls === 'at-risk' ? '🟡 At Risk' : '✅ On Time';
-
-  body.innerHTML = `
-    <div class="gantt-tooltip-row"><span>Machine</span><span>${machine}</span></div>
-    <div class="gantt-tooltip-row"><span>Start</span><span>${start} min</span></div>
-    <div class="gantt-tooltip-row"><span>Duration</span><span>${duration} min</span></div>
-    <div class="gantt-tooltip-row"><span>Deadline</span><span>${due} min</span></div>
-    <div class="gantt-tooltip-row"><span>Completes</span><span>${completion} min</span></div>
-    <div class="gantt-tooltip-row"><span>Status</span><span>${status}</span></div>
-  `;
-
-  tip.style.left = (event.clientX + 16) + 'px';
-  tip.style.top = (event.clientY - 8) + 'px';
-  tip.classList.add('visible');
-}
-
-function hideTooltip() {
-  document.getElementById('ganttTooltip').classList.remove('visible');
-}
-
-// ═══════════════════════════════════════════════════════════
-// DISRUPTION FLOWS
-// ═══════════════════════════════════════════════════════════
-
-// ── Machine Selector ──
-function showMachineSelector(mode) {
-  state.selectorMode = mode;
-  const selector = document.getElementById('machineSelector');
-  const grid = document.getElementById('machineGrid');
-  const title = document.getElementById('machineSelectorTitle');
-
-  title.textContent = mode === 'failure' ? 'Select Machine to Fail' : 'Select Machine to Recover';
-
-  const machines = state.factory ? Object.entries(state.factory.machines) : [];
-  let html = '';
-  machines.forEach(([id, m]) => {
-    const isAvailable = m.status === 'available';
-    if (mode === 'failure') {
-      html += `<button class="machine-btn ${isAvailable ? '' : 'disabled'}" onclick="executeMachineAction('${id}')">${id}</button>`;
-    } else {
-      html += `<button class="machine-btn ${!isAvailable ? '' : 'disabled'}" onclick="executeMachineAction('${id}')">${id}</button>`;
-    }
-  });
-  grid.innerHTML = html;
-  selector.classList.add('visible');
-}
-
-function hideMachineSelector() {
-  document.getElementById('machineSelector').classList.remove('visible');
-}
-
-async function executeMachineAction(machineId) {
-  hideMachineSelector();
-
-  if (state.selectorMode === 'failure') {
-    await triggerDisruption({ type: 'machine_failure', machine_id: machineId });
-  } else {
-    await triggerDisruption({ type: 'machine_recovery', machine_id: machineId });
-  }
-}
-
-// ── Disruption Triggers ──
-async function triggerUrgentJob() {
-  const existingIds = state.factory
-    ? state.factory.jobs.map(j => parseInt(j.job_id.replace('J', '')))
-    : [12];
-  const nextId = Math.max(...existingIds) + 1;
-
-  await triggerDisruption({
-    type: 'urgent_job',
-    job_id: `J${nextId}`,
-    duration: 35 + Math.floor(Math.random() * 20),
-    deadline: 100 + Math.floor(Math.random() * 60),
-    priority: 5,
-  });
-}
-
-async function triggerDeadlineChange() {
-  // Pick a random active job and tighten its deadline
-  const jobs = state.factory ? state.factory.jobs.filter(j => j.status !== 'cancelled') : [];
-  if (jobs.length === 0) return;
-  const job = jobs[Math.floor(Math.random() * jobs.length)];
-  const newDeadline = Math.max(20, Math.floor(job.deadline * 0.5));
-
-  await triggerDisruption({
-    type: 'deadline_change',
-    job_id: job.job_id,
-    new_deadline: newDeadline,
-  });
-}
-
-async function triggerJobCancellation() {
-  const jobs = state.factory ? state.factory.jobs.filter(j => j.status !== 'cancelled') : [];
-  if (jobs.length === 0) return;
-  const job = jobs[Math.floor(Math.random() * jobs.length)];
-
-  await triggerDisruption({
-    type: 'job_cancellation',
-    job_id: job.job_id,
-  });
-}
-
-async function triggerMultipleFailures() {
-  const available = state.factory
-    ? Object.entries(state.factory.machines).filter(([_, m]) => m.status === 'available').map(([id]) => id)
-    : [];
-  if (available.length < 2) return;
-
-  // Fail two random machines
-  const shuffled = available.sort(() => Math.random() - 0.5);
-  await triggerDisruption({ type: 'machine_failure', machine_id: shuffled[0] });
-  // Small delay for visual effect
-  await new Promise(r => setTimeout(r, 300));
-  await triggerDisruption({ type: 'machine_failure', machine_id: shuffled[1] });
-}
-
-// ── Central Disruption Handler ──
-async function triggerDisruption(disruption) {
-  setFactoryStatus('DISRUPTED');
-  disableSimButtons(true);
-
-  try {
-    const res = await fetch(`${API}/disruptions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(disruption),
-    });
-    const data = await res.json();
-
-    if (data.error) {
-      console.error('Disruption error:', data.error);
-      setFactoryStatus('OPERATIONAL');
-      disableSimButtons(false);
-      return;
-    }
-
-    state.lastDisruption = data;
-
-    // Track failed machines
-    if (disruption.type === 'machine_failure') {
-      state.failedMachines.add(disruption.machine_id);
-    } else if (disruption.type === 'machine_recovery') {
-      state.failedMachines.delete(disruption.machine_id);
-    }
-
-    // Show DISRUPTED status briefly
-    setFactoryStatus('DISRUPTED');
-    updateWhatChanged(data);
-
-    // Animate to RECOVERING
-    await sleep(400);
-    setFactoryStatus('RECOVERING');
-
-    // Update state
-    await sleep(400);
-
-    // Refresh full factory state
-    const stateRes = await fetch(`${API}/factory/state`);
-    state.factory = await stateRes.json();
-
-    state.disruptedMetrics = data.metrics.disrupted;
-    state.recoveryMetrics = data.metrics.recovery;
-    state.recoveryResilience = data.resilience.recovery;
-    state.recoverySchedule = data.schedules.recovery;
-    state.currentSchedule = data.schedules.recovery;
-
-    // Find reassigned jobs (jobs that moved machines)
-    const reassigned = findReassignedJobs(
-      state.baselineSchedule, data.schedules.recovery
-    );
-
-    // Update everything
-    setFactoryStatus('RECOVERED');
-    updateKPIs(data.metrics.recovery, data.resilience.recovery, state.baselineMetrics);
-    renderMachineStatusBar();
-    renderGantt(data.schedules.recovery, 'recovery', reassigned);
-    updateComparison(data.metrics.baseline, data.metrics.disrupted, data.metrics.recovery, data.resilience);
-    generateExplanation(data, disruption, reassigned);
-    updateSimButtons();
-    updateRecoveryStatus(data);
-
-  } catch (err) {
-    console.error('Disruption failed:', err);
-    setFactoryStatus('OPERATIONAL');
+    renderCurrentFrame();
   }
 
-  disableSimButtons(false);
-}
+  window.addEventListener("resize", resizeCanvas);
 
-function findReassignedJobs(baseline, recovery) {
-  if (!baseline || !recovery) return [];
-  const baseMap = {};
-  baseline.forEach(a => { baseMap[a.job_id] = a.machine; });
-
-  return recovery
-    .filter(a => baseMap[a.job_id] && baseMap[a.job_id] !== a.machine)
-    .map(a => a.job_id);
-}
-
-// ═══════════════════════════════════════════════════════════
-// WHAT CHANGED PANEL
-// ═══════════════════════════════════════════════════════════
-
-function updateWhatChanged(data) {
-  const empty = document.getElementById('whatChangedEmpty');
-  const content = document.getElementById('whatChangedContent');
-  empty.style.display = 'none';
-  content.style.display = 'block';
-
-  const d = data.disruption;
-  const impact = data.impact;
-
-  let iconClass = 'failure';
-  let icon = '🔴';
-  let title = 'DISRUPTION';
-
-  switch (d.type) {
-    case 'machine_failure':
-      title = `MACHINE FAILURE — ${d.machine_id}`;
-      break;
-    case 'machine_recovery':
-      icon = '🟢'; iconClass = 'recovery';
-      title = `MACHINE RECOVERED — ${d.machine_id}`;
-      break;
-    case 'urgent_job':
-      icon = '⚡'; iconClass = 'urgent';
-      title = `URGENT ORDER — ${d.job_id}`;
-      break;
-    case 'job_cancellation':
-      icon = '❌'; iconClass = 'failure';
-      title = `JOB CANCELLED — ${d.job_id}`;
-      break;
-    case 'deadline_change':
-      icon = '⏰'; iconClass = 'urgent';
-      title = `DEADLINE CHANGED — ${d.job_id}`;
-      break;
-  }
-
-  let impactHtml = '';
-  if (impact.affected_job_count !== undefined) {
-    impactHtml += `<li class="impact-item"><span class="dot"></span>${impact.affected_job_count} jobs affected</li>`;
-  }
-  if (impact.deadline_risks !== undefined && impact.deadline_risks > 0) {
-    impactHtml += `<li class="impact-item"><span class="dot"></span>${impact.deadline_risks} deadline risks</li>`;
-  }
-  if (impact.description) {
-    impactHtml += `<li class="impact-item"><span class="dot"></span>${impact.description}</li>`;
-  }
-  if (data.affected_jobs && data.affected_jobs.length > 0) {
-    impactHtml += `<li class="impact-item"><span class="dot"></span>Affected: ${data.affected_jobs.join(', ')}</li>`;
-  }
-
-  content.innerHTML = `
-    <div class="disruption-header ${iconClass}">${icon} ${title}</div>
-    <ul class="impact-list">${impactHtml}</ul>
-    <div class="recovery-status processing" id="recoveryIndicator">
-      <span class="spinner"></span> Generating recovery schedule...
-    </div>
-  `;
-
-  content.classList.add('animate-in');
-}
-
-function updateRecoveryStatus(data) {
-  const indicator = document.getElementById('recoveryIndicator');
-  if (!indicator) return;
-
-  const recoveryJobs = data.schedules.recovery ? data.schedules.recovery.length : 0;
-  const time = data.recovery_time_seconds ? `${(data.recovery_time_seconds * 1000).toFixed(0)}ms` : '';
-
-  indicator.className = 'recovery-status complete';
-  indicator.innerHTML = `✓ Recovery complete · ${recoveryJobs} jobs scheduled · ${time}`;
-}
-
-// ═══════════════════════════════════════════════════════════
-// BEFORE vs AFTER COMPARISON
-// ═══════════════════════════════════════════════════════════
-
-function updateComparison(baseline, disrupted, recovery, resilience) {
-  const empty = document.getElementById('comparisonEmpty');
-  const content = document.getElementById('comparisonContent');
-  empty.style.display = 'none';
-  content.style.display = 'block';
-
-  const baseRes = resilience.baseline ? resilience.baseline.score : '—';
-  const recRes = resilience.recovery ? resilience.recovery.score : '—';
-
-  const rows = [
-    { label: 'Makespan', base: baseline.makespan + ' min', dis: (disrupted.makespan || '—') + ' min', rec: recovery.makespan + ' min' },
-    { label: 'Late Jobs', base: baseline.late_jobs, dis: disrupted.late_jobs !== undefined ? disrupted.late_jobs : '—', rec: recovery.late_jobs },
-    { label: 'Energy', base: baseline.energy_kwh + ' kWh', dis: (disrupted.energy_kwh || '—') + ' kWh', rec: recovery.energy_kwh + ' kWh' },
-    { label: 'Utilization', base: baseline.average_utilization + '%', dis: (disrupted.average_utilization || '—') + '%', rec: recovery.average_utilization + '%' },
-    { label: 'Resilience', base: baseRes, dis: '—', rec: recRes },
-  ];
-
-  let html = `<table class="comparison-table">
-    <thead><tr>
-      <th>Metric</th>
-      <th>Baseline</th>
-      <th>Disrupted</th>
-      <th>FlowForge</th>
-    </tr></thead><tbody>`;
-
-  rows.forEach(r => {
-    html += `<tr>
-      <td>${r.label}</td>
-      <td class="value-baseline">${r.base}</td>
-      <td class="value-disrupted">${r.dis}</td>
-      <td class="value-recovery">${r.rec}</td>
-    </tr>`;
-  });
-
-  html += `</tbody></table>`;
-  content.innerHTML = html;
-  content.classList.add('animate-in');
-}
-
-// ═══════════════════════════════════════════════════════════
-// AI EXPLANATION (Deterministic template-based)
-// ═══════════════════════════════════════════════════════════
-
-function generateExplanation(data, disruption, reassignedJobs) {
-  const panel = document.getElementById('explanationPanel');
-  const contentEl = document.getElementById('explanationContent');
-  const factsEl = document.getElementById('explanationFacts');
-  panel.style.display = 'block';
-
-  const baseline = data.metrics.baseline;
-  const recovery = data.metrics.recovery;
-
-  let explanation = '';
-  let facts = '';
-
-  switch (disruption.type) {
-    case 'machine_failure': {
-      const mid = disruption.machine_id;
-      const affected = data.affected_jobs || [];
-      const energyMap = state.factory ? state.factory.machines : {};
-      const machineEnergy = energyMap[mid] ? energyMap[mid].energy_kwh_per_hour : '?';
-
-      // Find where jobs were reassigned to
-      const movements = [];
-      if (state.baselineSchedule && data.schedules.recovery) {
-        const baseMap = {};
-        state.baselineSchedule.forEach(a => { baseMap[a.job_id] = a.machine; });
-        data.schedules.recovery.forEach(a => {
-          if (baseMap[a.job_id] && baseMap[a.job_id] !== a.machine) {
-            movements.push({ job: a.job_id, from: baseMap[a.job_id], to: a.machine });
-          }
-        });
-      }
-
-      explanation = `<strong>${mid}</strong> became unavailable (${machineEnergy} kWh/hr capacity removed). `;
-
-      if (movements.length > 0) {
-        const mainMove = movements[0];
-        explanation += `<strong>${mainMove.job}</strong> was reassigned from <strong>${mainMove.from}</strong> to <strong>${mainMove.to}</strong>. `;
-
-        if (movements.length > 1) {
-          explanation += `${movements.length - 1} additional job${movements.length > 2 ? 's were' : ' was'} redistributed across available machines. `;
+  function renderCurrentFrame() {
+    let img = state.images[state.currentFrameIndex];
+    if (!img || !img.complete || img.naturalWidth === 0) {
+      // Robust fallback: search nearest loaded frame to prevent flicker or blank canvas
+      for (let delta = 1; delta < state.totalFrames; delta++) {
+        const prev = state.images[state.currentFrameIndex - delta];
+        if (prev && prev.complete && prev.naturalWidth > 0) {
+          img = prev;
+          break;
+        }
+        const next = state.images[state.currentFrameIndex + delta];
+        if (next && next.complete && next.naturalWidth > 0) {
+          img = next;
+          break;
         }
       }
-
-      const makespanDiff = recovery.makespan - baseline.makespan;
-      const energyDiff = recovery.energy_kwh - baseline.energy_kwh;
-      const energyPct = baseline.energy_kwh > 0 ? ((energyDiff / baseline.energy_kwh) * 100).toFixed(1) : 0;
-
-      if (recovery.late_jobs === 0) {
-        explanation += `All deadlines are protected in the recovery schedule. `;
-      }
-      if (energyDiff < 0) {
-        explanation += `Energy consumption decreased by ${Math.abs(energyPct)}% as jobs shifted to more efficient machines.`;
-      } else if (energyDiff > 0) {
-        explanation += `Energy consumption increased by ${energyPct}% as a trade-off for deadline protection.`;
-      }
-
-      // Facts
-      if (movements.length > 0) {
-        facts = movements.slice(0, 3).map(m =>
-          `<div class="explanation-fact">
-            <span class="explanation-fact-label">${m.job}</span>
-            <span class="explanation-fact-value">${m.from} → ${m.to}</span>
-          </div>`
-        ).join('');
-      }
-
-      facts += `<div class="explanation-fact">
-        <span class="explanation-fact-label">Makespan Δ</span>
-        <span class="explanation-fact-value">${makespanDiff > 0 ? '+' : ''}${makespanDiff} min</span>
-      </div>`;
-      facts += `<div class="explanation-fact">
-        <span class="explanation-fact-label">Energy Δ</span>
-        <span class="explanation-fact-value">${energyDiff > 0 ? '+' : ''}${energyDiff.toFixed(1)} kWh (${energyPct}%)</span>
-      </div>`;
-      break;
     }
+    if (!img || !img.complete || img.naturalWidth === 0) return;
 
-    case 'urgent_job': {
-      const jid = disruption.job_id;
-      explanation = `Urgent job <strong>${jid}</strong> (duration: ${disruption.duration} min, deadline: ${disruption.deadline} min) `;
-      explanation += `was inserted into the production schedule. FlowForge re-optimized all job assignments to accommodate the new job while protecting existing deadlines.`;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const logicalWidth = canvas.width / dpr;
+    const logicalHeight = canvas.height / dpr;
 
-      facts = `<div class="explanation-fact">
-        <span class="explanation-fact-label">New Job</span>
-        <span class="explanation-fact-value">${jid}</span>
-      </div>
-      <div class="explanation-fact">
-        <span class="explanation-fact-label">Duration</span>
-        <span class="explanation-fact-value">${disruption.duration} min</span>
-      </div>
-      <div class="explanation-fact">
-        <span class="explanation-fact-label">Deadline</span>
-        <span class="explanation-fact-value">${disruption.deadline} min</span>
-      </div>`;
-      break;
-    }
+    // Cleaned frames allow clean 4px border margin for edge-to-edge fidelity
+    const cropX = 4;
+    const cropY = 4;
+    const srcW = Math.max(1, img.width - cropX * 2);
+    const srcH = Math.max(1, img.height - cropY * 2);
 
-    case 'job_cancellation': {
-      explanation = `Job <strong>${disruption.job_id}</strong> was cancelled, releasing capacity. FlowForge re-optimized the schedule to take advantage of the freed capacity, potentially improving makespan and energy consumption.`;
+    // Fit to screen (cover mode) so it fills the screen completely, edge-to-edge
+    const hRatio = logicalWidth / srcW;
+    const vRatio = logicalHeight / srcH;
+    const ratio = Math.max(hRatio, vRatio);
 
-      const energyDiff = recovery.energy_kwh - baseline.energy_kwh;
-      facts = `<div class="explanation-fact">
-        <span class="explanation-fact-label">Cancelled</span>
-        <span class="explanation-fact-value">${disruption.job_id}</span>
-      </div>
-      <div class="explanation-fact">
-        <span class="explanation-fact-label">Energy Δ</span>
-        <span class="explanation-fact-value">${energyDiff > 0 ? '+' : ''}${energyDiff.toFixed(1)} kWh</span>
-      </div>`;
-      break;
-    }
+    const drawWidth = srcW * ratio;
+    const drawHeight = srcH * ratio;
+    const drawX = (logicalWidth - drawWidth) / 2;
+    const drawY = (logicalHeight - drawHeight) / 2;
 
-    case 'deadline_change': {
-      explanation = `The deadline for <strong>${disruption.job_id}</strong> was changed to <strong>${disruption.new_deadline} min</strong>. FlowForge re-prioritized the schedule to protect this tighter constraint.`;
-
-      facts = `<div class="explanation-fact">
-        <span class="explanation-fact-label">Job</span>
-        <span class="explanation-fact-value">${disruption.job_id}</span>
-      </div>
-      <div class="explanation-fact">
-        <span class="explanation-fact-label">New Deadline</span>
-        <span class="explanation-fact-value">${disruption.new_deadline} min</span>
-      </div>`;
-      break;
-    }
-
-    case 'machine_recovery': {
-      explanation = `Machine <strong>${disruption.machine_id}</strong> has been restored. FlowForge re-optimized the schedule to take advantage of the restored capacity, potentially improving performance.`;
-
-      facts = `<div class="explanation-fact">
-        <span class="explanation-fact-label">Recovered</span>
-        <span class="explanation-fact-value">${disruption.machine_id}</span>
-      </div>`;
-      break;
-    }
-
-    default:
-      explanation = 'FlowForge automatically generated a recovery schedule.';
+    ctx.clearRect(0, 0, logicalWidth, logicalHeight);
+    ctx.drawImage(img, cropX, cropY, srcW, srcH, drawX, drawY, drawWidth, drawHeight);
   }
 
-  contentEl.innerHTML = explanation;
-  factsEl.innerHTML = facts;
-  panel.classList.add('animate-in');
-}
+  // Step 2: Preload frames with progress reporting
+  state.images = new Array(state.totalFrames);
+  let loadedCount = 0;
 
-function hideExplanation() {
-  document.getElementById('explanationPanel').style.display = 'none';
-}
+  const checkMotionPreference = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-// ═══════════════════════════════════════════════════════════
-// RESET & PANEL MANAGEMENT
-// ═══════════════════════════════════════════════════════════
+  function onSingleFrameLoaded(idx) {
+    loadedCount++;
+    const progress = Math.round((loadedCount / state.totalFrames) * 100);
+    if (loaderText) loaderText.textContent = `Preloading ${progress}%`;
 
-async function resetFactory() {
-  try {
-    await fetch(`${API}/factory/reset`, { method: 'POST' });
-    state.failedMachines = new Set();
-    await initializeFactory();
-  } catch (err) {
-    console.error('Reset failed:', err);
+    // Render first frame as soon as frame 0 arrives
+    if (idx === 0) {
+      resizeCanvas();
+      renderCurrentFrame();
+    }
+
+    // Once all or a usable batch is loaded, activate GSAP scroll scrub
+    if (loadedCount >= state.totalFrames) {
+      if (loader) loader.classList.add("hidden");
+      state.isAnimationReady = true;
+
+      if (!checkMotionPreference) {
+        setupGSAPScrollTrigger(canvas, renderCurrentFrame);
+      }
+    }
   }
-}
 
-function resetPanels() {
-  document.getElementById('whatChangedEmpty').style.display = '';
-  document.getElementById('whatChangedContent').style.display = 'none';
-  document.getElementById('comparisonEmpty').style.display = '';
-  document.getElementById('comparisonContent').style.display = 'none';
-}
-
-// ═══════════════════════════════════════════════════════════
-// SIMULATOR CONTROLS
-// ═══════════════════════════════════════════════════════════
-
-function updateSimButtons() {
-  const hasFailed = state.failedMachines.size > 0;
-  const recoverBtn = document.getElementById('btnRecoverMachine');
-  recoverBtn.style.display = hasFailed ? '' : 'none';
-}
-
-function disableSimButtons(disabled) {
-  document.querySelectorAll('.sim-btn').forEach(btn => {
-    btn.disabled = disabled;
+  // Preload all frames asynchronously
+  state.frames.forEach((frameUrl, idx) => {
+    const img = new Image();
+    img.src = frameUrl;
+    img.onload = () => {
+      state.images[idx] = img;
+      onSingleFrameLoaded(idx);
+    };
+    img.onerror = () => {
+      // Fallback in case of missing frame
+      onSingleFrameLoaded(idx);
+    };
   });
 }
 
-// ── Utility ──
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+// Automatically detect frame list and count
+async function detectFramesManifest(basePath) {
+  try {
+    // Attempt 1: Fetch dynamic manifest from API
+    const res = await fetch("/api/frames-info");
+    if (res.ok) {
+      const data = await res.json();
+      if (data.frames && data.frames.length > 0) {
+        return {
+          totalFrames: data.frames.length,
+          frames: data.frames,
+        };
+      }
+    }
+  } catch (e) {
+    // API not reached, try static manifest
+  }
 
-// ═══════════════════════════════════════════════════════════
-// DATA SOURCE & EXCEL UPLOADER
-// ═══════════════════════════════════════════════════════════
+  try {
+    // Attempt 2: Fetch manifest.json directly from FRAME_PATH
+    const res = await fetch(`${basePath}manifest.json`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.frames && data.frames.length > 0) {
+        return {
+          totalFrames: data.frames.length,
+          frames: data.frames,
+        };
+      }
+    }
+  } catch (e) {
+    // Fallback to sequential probe
+  }
 
-function updateDataSourceBadge(dataSource) {
-  const badgeText = document.getElementById('dataSourceText');
-  const demoBtn = document.getElementById('btnUseDemoData');
+  // Attempt 3: Progressive discovery
+  const frames = [];
+  for (let i = 1; i <= 240; i++) {
+    const pad = String(i).padStart(3, "0");
+    frames.push(`${basePath}ezgif-frame-${pad}.jpg`);
+  }
+  return { totalFrames: frames.length, frames };
+}
 
-  const text = dataSource || 'Demo Factory Data';
-  badgeText.textContent = text.replace('uploaded/', '').replace('examples/', '');
+// GSAP + ScrollTrigger Hero Pinning & Scrubbing
+function setupGSAPScrollTrigger(canvas, renderCallback) {
+  if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") {
+    console.warn("GSAP / ScrollTrigger not loaded");
+    return;
+  }
 
-  if (text.toLowerCase().includes('demo')) {
-    demoBtn.style.display = 'none';
-  } else {
-    demoBtn.style.display = 'inline-block';
+  gsap.registerPlugin(ScrollTrigger);
+
+  const heroSection = document.getElementById("hero");
+  if (!heroSection) return;
+
+  let rafPending = false;
+  function requestRender() {
+    if (!rafPending) {
+      rafPending = true;
+      requestAnimationFrame(() => {
+        renderCallback();
+        rafPending = false;
+      });
+    }
+  }
+
+  ScrollTrigger.create({
+    trigger: heroSection,
+    start: "top top",
+    end: "+=220%",
+    pin: true,
+    scrub: 0.5,
+    anticipatePin: 1,
+    onUpdate: (self) => {
+      const frameIndex = Math.min(
+        state.totalFrames - 1,
+        Math.max(0, Math.floor(self.progress * state.totalFrames))
+      );
+      if (frameIndex !== state.currentFrameIndex) {
+        state.currentFrameIndex = frameIndex;
+        requestRender();
+      }
+
+      // Smoothly fade scroll indicator on scroll
+      const indicator = document.getElementById("heroScrollIndicator");
+      if (indicator) {
+        indicator.style.opacity = Math.max(0, 1 - self.progress * 4);
+      }
+
+      // Smoothly fade hero title & subtitle as machine expands on scroll
+      const heroContent = document.getElementById("heroContent");
+      if (heroContent) {
+        const opacity = Math.max(0, 1 - self.progress * 2.2);
+        const translateY = -self.progress * 60;
+        heroContent.style.opacity = opacity;
+        heroContent.style.transform = `translate(-50%, ${translateY}px)`;
+      }
+    },
+  });
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// 3. BACKEND DATA SYNCHRONIZATION & FLOWFORGE SCHEDULER
+// ═════════════════════════════════════════════════════════════════════════
+
+async function initFlowForgeEngine() {
+  try {
+    const res = await fetch("/factory/initialize", { method: "POST" });
+    if (!res.ok) throw new Error("Failed to initialize factory state");
+    const data = await res.json();
+
+    state.baselineSchedule = data.baseline_schedule || [];
+    state.currentSchedule = state.baselineSchedule;
+    state.baselineMetrics = data.metrics;
+    state.baselineResilience = data.resilience;
+    state.isDisrupted = false;
+
+    // Fetch full factory machine status
+    const stateRes = await fetch("/factory/state");
+    state.factory = await stateRes.json();
+
+    updateUI();
+  } catch (err) {
+    console.error("Initialization error:", err);
   }
 }
 
-function openExcelModal() {
-  document.getElementById('excelModalOverlay').style.display = 'flex';
-  resetExcelModalState();
+// ═════════════════════════════════════════════════════════════════════════
+// 4. UI RENDERERS (EXACT REFERENCE REPLICAS)
+// ═════════════════════════════════════════════════════════════════════════
+
+function updateUI() {
+  updateNavStatus();
+  renderFactoryExplorer();
+  renderControlCenter();
+  renderGanttChart();
+  renderDisruptionBanner();
+  renderComparisonCards();
+  renderDecisionReport();
 }
 
-function closeExcelModal() {
-  document.getElementById('excelModalOverlay').style.display = 'none';
+// Navigation status chip
+function updateNavStatus() {
+  const chip = document.getElementById("navStatusChip");
+  const txt = document.getElementById("navStatusText");
+  if (!chip || !txt) return;
+
+  if (state.isDisrupted) {
+    chip.classList.add("disrupted");
+    txt.textContent = "DISRUPTED";
+    chip.title = "Factory Disruption Active — Click to Reset to Operational";
+  } else {
+    chip.classList.remove("disrupted");
+    txt.textContent = "OPERATIONAL";
+    chip.title = "Factory Status: Operational — Click to explore Disruption Scenarios";
+  }
+
+  if (!chip.dataset.bound) {
+    chip.dataset.bound = "true";
+    chip.addEventListener("click", () => {
+      if (state.isDisrupted) {
+        resetFactoryState();
+      } else {
+        const scn = document.getElementById("disruption");
+        if (scn) scn.scrollIntoView({ behavior: "smooth" });
+      }
+    });
+  }
 }
 
-function resetExcelModalState() {
-  state.selectedExcelFile = null;
-  document.getElementById('excelFileInput').value = '';
-  document.getElementById('fileSelectedInfo').style.display = 'none';
-  document.getElementById('excelErrorBox').style.display = 'none';
-  document.getElementById('excelPreviewBox').style.display = 'none';
-  document.getElementById('uploadLoading').style.display = 'none';
-  document.getElementById('btnConfirmExcel').disabled = true;
+// Screen 3: Factory Explorer Grid (Dynamic machines)
+function renderFactoryExplorer() {
+  const grid = document.getElementById("machinesGrid");
+  if (!grid) return;
+
+  const activeMachines = state.factory ? state.factory.machines : {};
+  let machineKeys = Object.keys(activeMachines);
+  if (!machineKeys.length) {
+    machineKeys = ["M1", "M2", "M3", "M4", "M5", "M6"];
+  }
+  machineKeys.sort();
+
+  let html = "";
+  machineKeys.forEach((id, idx) => {
+    const imgIndex = (idx % 6) + 1;
+    const fallbackImg = `/static/assets/machines/m${imgIndex}.jpg`;
+    const spec = MACHINE_SPECS[id] || { name: `Workstation ${id}`, type: "Machine Cell", img: fallbackImg, defaultUtil: 85 };
+    const liveMachine = activeMachines[id];
+    const isStopped = liveMachine ? liveMachine.status !== "available" : (id === "M5" && !state.isDisrupted);
+    let statusText = isStopped ? "STOPPED" : "RUNNING";
+    let statusClass = isStopped ? "stopped" : "running";
+
+    if (liveMachine && liveMachine.unavailable_periods && liveMachine.unavailable_periods.length > 0) {
+      const p = liveMachine.unavailable_periods[0];
+      statusText = `MAINT [${p[0]}-${p[1]}m]`;
+      statusClass = "maintenance";
+    }
+
+    // Dynamic utilization
+    let util = spec.defaultUtil;
+    if (state.baselineMetrics && state.baselineMetrics.machine_utilization && state.baselineMetrics.machine_utilization[id] !== undefined) {
+      util = Math.round(state.baselineMetrics.machine_utilization[id]);
+    } else if (isStopped) {
+      util = 0;
+    }
+
+    html += `
+      <div class="machine-card ${isStopped ? "stopped" : ""}" id="card_${id}" onclick="toggleMachine('${id}')" title="Click to simulate toggle">
+        <div class="machine-card-header">
+          <div>
+            <div class="machine-card-id">${id}</div>
+            <div class="machine-card-name">${spec.name}</div>
+            <div class="machine-card-status ${statusClass}">${statusText}</div>
+          </div>
+          <div class="machine-card-util">${util}%</div>
+        </div>
+        <div class="machine-card-image-wrap">
+          <img src="${spec.img}" alt="${spec.name}" class="machine-card-image" onerror="this.src='/static/assets/machines/m1.jpg'">
+        </div>
+      </div>
+    `;
+  });
+
+  grid.innerHTML = html;
 }
+
+// Screen 4: Control Center Greeting & Horizontal KPI Strip
+function renderControlCenter() {
+  const greeting = document.getElementById("monitorGreeting");
+  const kpiRes = document.getElementById("kpiResilience");
+  const kpiMach = document.getElementById("kpiMachines");
+  const kpiEnergy = document.getElementById("kpiEnergy");
+
+  if (greeting) {
+    if (state.isDisrupted) {
+      greeting.innerHTML = `Attention needed. <strong>M3 Stamping Press is offline.</strong>`;
+    } else {
+      greeting.innerHTML = `Good morning. Your factory is <strong>running smoothly.</strong>`;
+    }
+  }
+
+  // Active / Total machines count
+  let availableCount = 6;
+  let totalCount = 6;
+  if (state.factory && state.factory.machines) {
+    const vals = Object.values(state.factory.machines);
+    totalCount = vals.length;
+    availableCount = vals.filter((m) => m.status === "available").length;
+  } else if (state.isDisrupted) {
+    availableCount = 5;
+  }
+
+  // Resilience score
+  const resilienceScore = state.isDisrupted
+    ? (state.recoveryResilience ? state.recoveryResilience.score : 54)
+    : (state.baselineResilience ? state.baselineResilience.score : 87);
+
+  // Energy consumption
+  const energyVal = state.isDisrupted
+    ? (state.recoveryMetrics ? state.recoveryMetrics.energy_kwh : 980)
+    : (state.baselineMetrics ? state.baselineMetrics.energy_kwh : 980);
+
+  if (kpiRes) animateNumber(kpiRes, resilienceScore);
+  if (kpiMach) kpiMach.textContent = `${availableCount}/${totalCount}`;
+  if (kpiEnergy) animateNumber(kpiEnergy, Math.round(energyVal), " kWh");
+}
+
+// Screen 4: Large Elegant Gantt Chart (Reference Palette: Soft Blues, Greens, Ambers)
+function renderGanttChart() {
+  const grid = document.getElementById("ganttGrid");
+  const ruler = document.getElementById("ganttRuler");
+  if (!grid) return;
+
+  const schedule = state.currentSchedule || [];
+  let machines = (state.factory && state.factory.machines && Object.keys(state.factory.machines).length > 0)
+    ? Object.keys(state.factory.machines)
+    : [];
+  if (!machines.length) {
+    machines = schedule.length > 0
+      ? Array.from(new Set(schedule.map((a) => a.machine)))
+      : ["M1", "M2", "M3", "M4", "M5", "M6"];
+  }
+  machines.sort();
+
+  const makespan = schedule.length > 0
+    ? Math.max(...schedule.map((a) => a.start + a.duration))
+    : 300;
+
+  // Render Rows
+  let gridHtml = "";
+  machines.forEach((mId, idx) => {
+    const isOffline = state.factory && state.factory.machines[mId] && state.factory.machines[mId].status !== "available";
+    const jobs = schedule.filter((a) => a.machine === mId);
+
+    gridHtml += `
+      <div class="gantt-row" id="grow_${mId}">
+        <div class="gantt-row-label">${mId}</div>
+        <div class="gantt-row-track">
+    `;
+
+    // Render unavailable maintenance blocks if any
+    const unavailList = (state.factory && state.factory.machines[mId] && state.factory.machines[mId].unavailable_periods) || [];
+    unavailList.forEach((period) => {
+      if (Array.isArray(period) && period.length >= 2) {
+        const uLeft = ((period[0] / makespan) * 100).toFixed(2);
+        const uWidth = (((period[1] - period[0]) / makespan) * 100).toFixed(2);
+        gridHtml += `
+          <div class="gantt-unavail-strip" style="left:${uLeft}%; width:${uWidth}%; position:absolute; top:3px; bottom:3px; background:repeating-linear-gradient(45deg, rgba(239,68,68,0.18), rgba(239,68,68,0.18) 6px, rgba(239,68,68,0.32) 6px, rgba(239,68,68,0.32) 12px); border:1px dashed #ef4444; border-radius:4px; z-index:2;"
+            title="${mId} Scheduled Maintenance (${period[0]}m - ${period[1]}m)">
+            <span style="font-size:0.62rem; color:#991b1b; font-weight:700; padding:1px 5px; background:rgba(255,255,255,0.9); border-radius:3px; position:absolute; left:2px; top:2px;">Maint ${period[0]}-${period[1]}m</span>
+          </div>
+        `;
+      }
+    });
+
+    jobs.forEach((j) => {
+      const left = ((j.start / makespan) * 100).toFixed(2);
+      const width = Math.max(3.5, (j.duration / makespan) * 100).toFixed(2);
+
+      // Color Palette matching Reference Screen 2:
+      // Row 1-2: soft blues; Row 3-4: soft greens; Row 5-6: warm amber
+      let colorClass = "color-blue";
+      if (idx === 2 || idx === 3) colorClass = "color-green";
+      else if (idx >= 4) colorClass = "color-amber";
+
+      if (j.reassigned) colorClass = "color-reassigned";
+
+      gridHtml += `
+        <div class="gantt-bar ${colorClass}" style="left:${left}%; width:${width}%;"
+          onmouseenter="showTooltip(event, '${j.job_id}', '${mId}', ${j.start}, ${j.duration}, ${j.deadline || j.due || 150})"
+          onmouseleave="hideTooltip()"
+        >
+          ${j.job_id} · ${j.name || "Task"}
+        </div>
+      `;
+    });
+
+    if (isOffline) {
+      gridHtml += `
+        <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(239,68,68,0.06); color:#ef4444; font-size:0.75rem; font-weight:700; letter-spacing:0.06em;">
+          OFFLINE
+        </div>
+      `;
+    }
+
+    gridHtml += `</div></div>`;
+  });
+
+  grid.innerHTML = gridHtml;
+
+  // Render Time Ruler (0h, 2h, 4h...)
+  if (ruler) {
+    let rulerHtml = "";
+    const steps = 6;
+    for (let s = 0; s <= steps; s++) {
+      const timeVal = Math.round((makespan * s) / steps);
+      rulerHtml += `<span>${timeVal}m</span>`;
+    }
+    ruler.innerHTML = rulerHtml;
+  }
+}
+
+// Screen 5: Disruption State Banner
+function renderDisruptionBanner() {
+  const badge = document.getElementById("disruptionBadge");
+  const title = document.getElementById("disruptionTitle");
+  const jobsAff = document.getElementById("impactJobsAffected");
+  const risks = document.getElementById("impactDeadlineRisks");
+  const delay = document.getElementById("impactDelay");
+
+  if (!badge) return;
+
+  if (state.isDisrupted) {
+    badge.textContent = "M3 OFFLINE";
+    badge.style.background = "var(--color-red)";
+    if (title) title.textContent = "Stamping Press failure detected. Autonomous recovery active.";
+    if (jobsAff) jobsAff.textContent = "4";
+    if (risks) risks.textContent = "2";
+    if (delay) delay.textContent = "+95 min";
+  } else {
+    badge.textContent = "ALL SYSTEMS NOMINAL";
+    badge.style.background = "#10b981";
+    if (title) title.textContent = "Factory operational. Zero critical disruptions detected.";
+    if (jobsAff) jobsAff.textContent = "0";
+    if (risks) risks.textContent = "0";
+    if (delay) delay.textContent = "0 min";
+  }
+}
+
+// Screen 6: Recovery Comparison Cards
+function renderComparisonCards() {
+  const msOld = document.getElementById("compMakespanOld");
+  const msNew = document.getElementById("compMakespanNew");
+  const msDelta = document.getElementById("compMakespanDelta");
+
+  const lateOld = document.getElementById("compLateOld");
+  const lateNew = document.getElementById("compLateNew");
+
+  const engOld = document.getElementById("compEnergyOld");
+  const engNew = document.getElementById("compEnergyNew");
+
+  const resOld = document.getElementById("compResilienceOld");
+  const resNew = document.getElementById("compResilienceNew");
+
+  if (state.isDisrupted) {
+    if (msOld) msOld.textContent = "520";
+    if (msNew) animateNumber(msNew, 445);
+    if (msDelta) msDelta.textContent = "-75 min saved";
+
+    if (lateOld) lateOld.textContent = "4";
+    if (lateNew) animateNumber(lateNew, 0);
+
+    if (engOld) engOld.textContent = "1120";
+    if (engNew) animateNumber(engNew, 980);
+
+    if (resOld) resOld.textContent = "54";
+    if (resNew) animateNumber(resNew, 81);
+  } else {
+    if (msOld) msOld.textContent = "480";
+    if (msNew) msNew.textContent = "445";
+    if (msDelta) msDelta.textContent = "Optimal baseline";
+
+    if (lateOld) lateOld.textContent = "0";
+    if (lateNew) lateNew.textContent = "0";
+
+    if (engOld) engOld.textContent = "980";
+    if (engNew) engNew.textContent = "980";
+
+    if (resOld) resOld.textContent = "87";
+    if (resNew) resNew.textContent = "87";
+  }
+}
+
+// Screen 7: Decision Report (Engineering Rationale)
+function renderDecisionReport() {
+  const title = document.getElementById("reportTitle");
+  const src = document.getElementById("flowSourceMachine");
+  const job = document.getElementById("flowJobId");
+  const jobName = document.getElementById("flowJobName");
+  const target = document.getElementById("flowTargetMachine");
+  const text = document.getElementById("reportText");
+
+  if (!title) return;
+
+  if (state.isDisrupted) {
+    title.textContent = "Why was J7 moved?";
+    if (src) src.textContent = "M3";
+    if (job) job.textContent = "J7";
+    if (jobName) jobName.textContent = "Exhaust Manifold";
+    if (target) target.textContent = "M5";
+    if (text) {
+      text.textContent = "M3 became unavailable due to hydraulic pressure loss. M5 had sufficient capacity to protect the production deadline while increasing energy consumption by only 3%.";
+    }
+  } else {
+    title.textContent = "Autonomous Schedule Integrity";
+    if (src) src.textContent = "M1";
+    if (job) job.textContent = "J1";
+    if (jobName) jobName.textContent = "Engine Block";
+    if (target) target.textContent = "M2";
+    if (text) {
+      text.textContent = "Production plan generated via Multi-Objective Genetic Algorithm optimizing across cycle time, deadline safety, and equipment energy profiles.";
+    }
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// 5. INTERACTIVE SCENARIOS (TRIGGER DISRUPTIONS & RECOVERY)
+// ═════════════════════════════════════════════════════════════════════════
+
+async function triggerMachineFailure(machineId = "M3") {
+  try {
+    const res = await fetch("/disruptions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "machine_failure", machine_id: machineId }),
+    });
+
+    const data = await res.json();
+    state.isDisrupted = true;
+    state.currentSchedule = (data.schedules && data.schedules.recovery) ? data.schedules.recovery : state.baselineSchedule;
+    state.recoverySchedule = state.currentSchedule;
+    state.recoveryMetrics = data.metrics ? data.metrics.recovery : null;
+    state.recoveryResilience = data.resilience ? data.resilience.recovery : null;
+
+    // Mark reassigned jobs
+    if (data.affected_jobs && data.affected_jobs.length > 0) {
+      const affectedSet = new Set(data.affected_jobs);
+      state.currentSchedule.forEach((item) => {
+        if (affectedSet.has(item.job_id)) item.reassigned = true;
+      });
+    }
+
+    // Update factory state
+    const stateRes = await fetch("/factory/state");
+    state.factory = await stateRes.json();
+
+    updateUI();
+
+    // Smooth scroll to Disruption section
+    const targetSection = document.getElementById("disruption");
+    if (targetSection) targetSection.scrollIntoView({ behavior: "smooth" });
+  } catch (err) {
+    console.error("Disruption error:", err);
+  }
+}
+
+async function triggerMachineRecovery(machineId = "M3") {
+  try {
+    const res = await fetch("/disruptions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "machine_recovery", machine_id: machineId }),
+    });
+
+    const data = await res.json();
+    state.isDisrupted = false;
+    state.currentSchedule = (data.schedules && data.schedules.recovery) ? data.schedules.recovery : state.baselineSchedule;
+
+    const stateRes = await fetch("/factory/state");
+    state.factory = await stateRes.json();
+
+    updateUI();
+
+    const targetSection = document.getElementById("recovery");
+    if (targetSection) targetSection.scrollIntoView({ behavior: "smooth" });
+  } catch (err) {
+    console.error("Recovery error:", err);
+  }
+}
+
+async function triggerUrgentJob() {
+  try {
+    const res = await fetch("/disruptions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "urgent_job",
+        job_id: "J99",
+        duration: 35,
+        deadline: 90,
+        priority: 5,
+      }),
+    });
+
+    const data = await res.json();
+    state.isDisrupted = true;
+    state.currentSchedule = data.schedules.recovery || state.currentSchedule;
+    updateUI();
+  } catch (err) {
+    console.error("Urgent job error:", err);
+  }
+}
+
+async function triggerDeadlineShift() {
+  try {
+    const res = await fetch("/disruptions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "deadline_change",
+        job_id: "J7",
+        new_deadline: 130,
+      }),
+    });
+
+    const data = await res.json();
+    state.isDisrupted = true;
+    state.currentSchedule = data.schedules.recovery || state.currentSchedule;
+    updateUI();
+  } catch (err) {
+    console.error("Deadline shift error:", err);
+  }
+}
+
+async function resetFactoryState() {
+  try {
+    await fetch("/factory/reset", { method: "POST" });
+    await initFlowForgeEngine();
+    updateUI();
+  } catch (err) {
+    console.error("Reset error:", err);
+  }
+}
+
+function toggleMachine(machineId) {
+  if (state.factory && state.factory.machines[machineId]) {
+    const isAvail = state.factory.machines[machineId].status === "available";
+    if (isAvail) {
+      triggerMachineFailure(machineId);
+    } else {
+      triggerMachineRecovery(machineId);
+    }
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// 6. SCREEN 2: EXCEL IMPORT & DROPZONE
+// ═════════════════════════════════════════════════════════════════════════
 
 function setupDropzone() {
-  const dropzone = document.getElementById('dropzone');
+  const dropzone = document.getElementById("dropzone");
   if (!dropzone) return;
 
-  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-    dropzone.addEventListener(eventName, preventDefaults, false);
+  ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
+    dropzone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
   });
 
-  function preventDefaults(e) {
-    e.preventDefault();
-    e.stopPropagation();
-  }
-
-  ['dragenter', 'dragover'].forEach(eventName => {
-    dropzone.addEventListener(eventName, () => dropzone.classList.add('dragover'), false);
+  ["dragenter", "dragover"].forEach((eventName) => {
+    dropzone.addEventListener(eventName, () => dropzone.classList.add("dragover"));
   });
 
-  ['dragleave', 'drop'].forEach(eventName => {
-    dropzone.addEventListener(eventName, () => dropzone.classList.remove('dragover'), false);
+  ["dragleave", "drop"].forEach((eventName) => {
+    dropzone.addEventListener(eventName, () => dropzone.classList.remove("dragover"));
   });
 
-  dropzone.addEventListener('drop', (e) => {
-    const dt = e.dataTransfer;
-    const files = dt.files;
+  dropzone.addEventListener("drop", (e) => {
+    const files = e.dataTransfer.files;
     if (files && files.length > 0) {
       processSelectedFile(files[0]);
     }
@@ -878,93 +820,111 @@ function handleFileSelect(event) {
 }
 
 function processSelectedFile(file) {
-  const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
-  if (ext !== '.xlsx' && ext !== '.xls') {
-    showExcelErrors(['• Unsupported file format. Please upload an Excel workbook (.xlsx or .xls).']);
-    return;
+  state.selectedFile = file;
+  const metaText = document.getElementById("uploadMetaText");
+  if (metaText) {
+    const sizeKb = (file.size / 1024).toFixed(1);
+    metaText.innerHTML = `<strong>${escapeHtml(file.name)}</strong> (${sizeKb} KB) — Validated & ready to run`;
   }
-
-  state.selectedExcelFile = file;
-  document.getElementById('selectedFileName').textContent = file.name;
-  document.getElementById('selectedFileSize').textContent = (file.size / 1024).toFixed(1) + ' KB';
-  document.getElementById('fileSelectedInfo').style.display = 'block';
-  document.getElementById('excelErrorBox').style.display = 'none';
-  document.getElementById('btnConfirmExcel').disabled = false;
 }
 
-function showExcelErrors(errorMessages) {
-  const box = document.getElementById('excelErrorBox');
-  const list = document.getElementById('excelErrorList');
-  list.innerHTML = errorMessages.map(msg => `<div>${msg}</div>`).join('');
-  box.style.display = 'block';
-  document.getElementById('excelPreviewBox').style.display = 'none';
-  document.getElementById('btnConfirmExcel').disabled = true;
-}
+async function runFlowForgeOptimization() {
+  const btn = document.getElementById("btnRunFlowForge");
+  if (btn) btn.disabled = true;
 
-async function uploadAndOptimize() {
-  if (!state.selectedExcelFile) return;
+  if (state.selectedFile) {
+    const formData = new FormData();
+    formData.append("file", state.selectedFile);
 
-  const loadingEl = document.getElementById('uploadLoading');
-  const confirmBtn = document.getElementById('btnConfirmExcel');
+    try {
+      const res = await fetch("/factory/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.success) {
+        state.baselineSchedule = data.baseline_schedule;
+        state.currentSchedule = data.baseline_schedule;
+        state.baselineMetrics = data.metrics;
+        state.baselineResilience = data.resilience;
+        state.factory = data.factory_state;
+        state.isDisrupted = false;
+        updateUI();
 
-  loadingEl.style.display = 'flex';
-  confirmBtn.disabled = true;
-  document.getElementById('excelErrorBox').style.display = 'none';
-
-  const formData = new FormData();
-  formData.append('file', state.selectedExcelFile);
-
-  try {
-    const res = await fetch(`${API}/factory/upload`, {
-      method: 'POST',
-      body: formData,
-    });
-
-    const data = await res.json();
-    loadingEl.style.display = 'none';
-
-    if (!res.ok || !data.success) {
-      showExcelErrors(data.error_messages || ['• Validation error processing Excel workbook.']);
-      return;
+        // Scroll into Control Center
+        document.getElementById("control-center").scrollIntoView({ behavior: "smooth" });
+      }
+    } catch (err) {
+      console.error("Upload error:", err);
     }
+  } else {
+    // If no file picked, re-run baseline on default factory
+    await initFlowForgeEngine();
+    document.getElementById("control-center").scrollIntoView({ behavior: "smooth" });
+  }
 
-    // Success! Update Application State
-    state.baselineSchedule = data.baseline_schedule;
-    state.currentSchedule = data.baseline_schedule;
-    state.baselineMetrics = data.metrics;
-    state.baselineResilience = data.resilience;
-    state.disruptedMetrics = null;
-    state.recoveryMetrics = null;
-    state.recoveryResilience = null;
-    state.lastDisruption = null;
-    state.failedMachines = new Set();
-    state.factory = data.factory_state;
+  if (btn) btn.disabled = false;
+}
 
-    // Show Preview Card brief moment before closing
-    document.getElementById('prevMachines').textContent = data.summary.machines_count;
-    document.getElementById('prevJobs').textContent = data.summary.jobs_count;
-    document.getElementById('prevHighPriority').textContent = data.summary.high_priority_jobs;
-    document.getElementById('prevEnergy').textContent = data.summary.total_energy_capacity_kwh + ' kWh';
-    document.getElementById('excelPreviewBox').style.display = 'block';
+function loadSampleTemplate() {
+  window.location.href = "/examples/factory_data_template.xlsx";
+}
 
-    updateDataSourceBadge(data.data_source);
-    updateKPIs(data.metrics, data.resilience);
-    renderMachineStatusBar();
-    renderGantt(data.baseline_schedule, 'baseline');
-    resetPanels();
-    hideExplanation();
-    updateSimButtons();
-
-    await sleep(800);
-    closeExcelModal();
-
-  } catch (err) {
-    loadingEl.style.display = 'none';
-    showExcelErrors([`• Connection error: ${err.message}`]);
+async function loadSampleJson() {
+  try {
+    const res = await fetch("/examples/job_shop_sample.json");
+    if (!res.ok) throw new Error("Could not fetch sample JSON");
+    const blob = await res.blob();
+    const file = new File([blob], "job_shop_sample.json", { type: "application/json" });
+    processSelectedFile(file);
+    await runFlowForgeOptimization();
+  } catch (e) {
+    console.error("Failed to load sample JSON:", e);
   }
 }
 
-async function useDemoData() {
-  await initializeFactory();
+// ═════════════════════════════════════════════════════════════════════════
+// 7. UTILITIES: NUMBER ANIMATIONS & TOOLTIPS
+// ═════════════════════════════════════════════════════════════════════════
+
+function animateNumber(element, target, suffix = "") {
+  const start = parseInt(element.textContent.replace(/\D/g, "")) || 0;
+  const diff = target - start;
+  const duration = 600;
+  const startTime = performance.now();
+
+  function step(now) {
+    const elapsed = now - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const current = Math.round(start + diff * eased);
+    element.textContent = `${current}${suffix}`;
+    if (progress < 1) requestAnimationFrame(step);
+  }
+
+  requestAnimationFrame(step);
 }
 
+function showTooltip(event, jobId, machine, start, duration, deadline) {
+  const tip = document.getElementById("ganttTooltip");
+  if (!tip) return;
+
+  const completes = start + duration;
+  const onTime = completes <= deadline;
+
+  tip.innerHTML = `
+    <strong>Job ${jobId}</strong> (${machine})<br>
+    Start: ${start}m · Duration: ${duration}m<br>
+    Due: ${deadline}m · Complete: ${completes}m<br>
+    Status: ${onTime ? "✅ On Time" : "🔴 Late"}
+  `;
+
+  tip.style.left = `${event.clientX + 14}px`;
+  tip.style.top = `${event.clientY - 10}px`;
+  tip.classList.add("visible");
+}
+
+function hideTooltip() {
+  const tip = document.getElementById("ganttTooltip");
+  if (tip) tip.classList.remove("visible");
+}

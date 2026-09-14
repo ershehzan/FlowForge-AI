@@ -4,198 +4,335 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="FlowForge — Autonomous Production Resilience & Optimization. When the factory changes, the schedule changes with it.">
-  <title>FlowForge — Autonomous Production Resilience</title>
-  <link rel="stylesheet" href="/static/styles.css">
+  <title>FLOWFORGE — Production that adapts.</title>
+  <link rel="stylesheet" href="/static/styles.css?v=5.0">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
 </head>
 <body>
 
-<div class="app-shell" id="app">
-
-  <!-- ═══ HEADER ═══ -->
-  <header class="header">
-    <div class="header-left">
-      <div class="header-title">FlowForge</div>
-      <div class="header-subtitle">Autonomous Production Resilience &amp; Optimization</div>
-    </div>
-    <div class="header-right">
-      <div class="data-source-badge" id="dataSourceBadge">
-        <span class="icon">⚙</span> <span id="dataSourceText">Demo Factory Data</span>
+  <!-- ═══ MINIMAL STICKY NAVIGATION ═══ -->
+  <div class="nav-wrapper">
+    <nav class="nav-bar">
+      <a href="#hero" class="nav-logo">FLOWFORGE</a>
+      <div class="nav-links">
+        <a href="#control-center" class="nav-link">Control Center</a>
+        <a href="#import" class="nav-link">Factory Data</a>
+        <a href="#explorer" class="nav-link">Factory Explorer</a>
+        <a href="#disruption" class="nav-link">Scenarios</a>
+        <a href="#decision" class="nav-link">History</a>
       </div>
-      <button class="btn btn-primary-sm" id="btnOpenUploadModal" onclick="openExcelModal()">📊 Upload Excel</button>
-      <button class="btn btn-secondary-sm" id="btnUseDemoData" onclick="useDemoData()" style="display:none">⚙ Demo Data</button>
-      <div class="factory-status" id="factoryStatus" data-status="OPERATIONAL">
-        <span class="status-dot"></span>
-        <span id="factoryStatusText">OPERATIONAL</span>
+      <div class="nav-status-chip" id="navStatusChip">
+        <span class="nav-status-dot"></span>
+        <span id="navStatusText">OPERATIONAL</span>
       </div>
-    </div>
-  </header>
-
-
-  <!-- ═══ KPI STRIP ═══ -->
-  <div class="kpi-strip" id="kpiStrip">
-    <div class="kpi-card resilience">
-      <span class="kpi-label">Factory Resilience</span>
-      <span class="kpi-value" id="kpiResilience">—</span>
-      <span class="kpi-sub" id="kpiResilienceLabel"></span>
-    </div>
-    <div class="kpi-card machines">
-      <span class="kpi-label">Active Machines</span>
-      <span class="kpi-value" id="kpiMachines">—</span>
-      <span class="kpi-sub" id="kpiMachinesSub"></span>
-    </div>
-    <div class="kpi-card late-jobs" id="kpiLateCard">
-      <span class="kpi-label">Late Jobs</span>
-      <span class="kpi-value" id="kpiLateJobs">—</span>
-      <span class="kpi-change" id="kpiLateChange"></span>
-    </div>
-    <div class="kpi-card makespan">
-      <span class="kpi-label">Makespan</span>
-      <span class="kpi-value" id="kpiMakespan">—</span>
-      <span class="kpi-change" id="kpiMakespanChange"></span>
-    </div>
-    <div class="kpi-card energy">
-      <span class="kpi-label">Energy</span>
-      <span class="kpi-value" id="kpiEnergy">—</span>
-      <span class="kpi-change" id="kpiEnergyChange"></span>
-    </div>
+    </nav>
   </div>
 
-  <!-- ═══ MACHINE STATUS BAR ═══ -->
-  <div class="machine-status-bar" id="machineStatusBar"></div>
-
-  <!-- ═══ GANTT CHART ═══ -->
-  <div class="gantt-container" id="ganttContainer">
-    <div class="gantt-header">
-      <div class="section-title"><span class="icon">📊</span> Production Schedule</div>
-      <div class="gantt-legend" id="ganttLegend">
-        <div class="gantt-legend-item"><div class="gantt-legend-dot" style="background:#4F6D8E"></div> Scheduled</div>
-        <div class="gantt-legend-item"><div class="gantt-legend-dot" style="background:#60A5FA"></div> Reassigned</div>
-        <div class="gantt-legend-item"><div class="gantt-legend-dot" style="background:#D97706"></div> At Risk</div>
-      </div>
-    </div>
-    <div class="gantt-chart" id="ganttChart">
-      <div class="panel-empty">
-        <div class="icon">📋</div>
-        <div class="text">Initialize factory to generate baseline schedule</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══ PANELS: What Changed + Before vs After ═══ -->
-  <div class="panels-grid" id="panelsGrid">
-    <!-- What Changed -->
-    <div class="panel" id="whatChangedPanel">
-      <div class="section-title"><span class="icon">🔔</span> What Changed?</div>
-      <div class="panel-empty" id="whatChangedEmpty">
-        <div class="icon">✓</div>
-        <div class="text">No active disruption<br>Factory operating normally</div>
-      </div>
-      <div id="whatChangedContent" style="display:none"></div>
+  <!-- ═══ SCREEN 1: HERO (PINNED CANVAS SCROLL ANIMATION) ═══ -->
+  <section class="hero-section" id="hero">
+    <!-- Full-screen Canvas Background behind all text -->
+    <div class="hero-canvas-container" id="heroCanvasContainer">
+      <canvas id="heroCanvas" class="hero-canvas"></canvas>
     </div>
 
-    <!-- Before vs After -->
-    <div class="panel" id="comparisonPanel">
-      <div class="section-title"><span class="icon">📈</span> Before vs After</div>
-      <div class="panel-empty" id="comparisonEmpty">
-        <div class="icon">⚖</div>
-        <div class="text">Trigger a disruption to see<br>schedule comparison</div>
-      </div>
-      <div id="comparisonContent" style="display:none"></div>
+    <!-- Hero Headline & Subtitle floating in front in the middle -->
+    <div class="hero-content" id="heroContent">
+      <h1 class="hero-title">Production that adapts.</h1>
+      <p class="hero-sub">Autonomous production resilience. When the factory changes, the schedule changes with it.</p>
     </div>
-  </div>
 
-  <!-- ═══ AI EXPLANATION ═══ -->
-  <div class="explanation-panel" id="explanationPanel" style="display:none">
-    <div class="explanation-badge">✦ FlowForge Decision · AI-generated explanation</div>
-    <div class="explanation-content" id="explanationContent"></div>
-    <div class="explanation-facts" id="explanationFacts"></div>
-  </div>
-
-  <!-- ═══ SCENARIO SIMULATOR ═══ -->
-  <div class="simulator">
-    <div class="section-title"><span class="icon">🎮</span> Simulate Disruption</div>
-    <div class="simulator-controls" id="simulatorControls">
-      <button class="sim-btn danger" id="btnMachineFailure" onclick="showMachineSelector('failure')">🔴 Machine Failure</button>
-      <button class="sim-btn warning" id="btnUrgentOrder" onclick="triggerUrgentJob()">⚡ Urgent Order</button>
-      <button class="sim-btn warning" id="btnDeadlineChange" onclick="triggerDeadlineChange()">⏰ Deadline Change</button>
-      <button class="sim-btn danger" id="btnCancellation" onclick="triggerJobCancellation()">❌ Job Cancellation</button>
-      <button class="sim-btn danger" id="btnMultipleFailures" onclick="triggerMultipleFailures()">🔥 Multiple Failures</button>
-      <button class="sim-btn active-btn" id="btnRecoverMachine" onclick="showMachineSelector('recovery')" style="display:none">🔧 Recover Machine</button>
-      <button class="sim-btn reset-btn" id="btnReset" onclick="resetFactory()">↻ Reset Factory</button>
+    <!-- Preloader minimal percentage badge -->
+    <div class="hero-loader" id="heroLoader">
+      <div class="hero-loader-spinner"></div>
+      <div class="hero-loader-text" id="heroLoaderText">Preloading 0%</div>
     </div>
-  </div>
 
-</div>
-
-<!-- Machine Selector Modal -->
-<div class="machine-selector" id="machineSelector">
-  <div class="machine-selector-inner">
-    <div class="machine-selector-title" id="machineSelectorTitle">Select Machine</div>
-    <div class="machine-grid" id="machineGrid"></div>
-    <button class="machine-selector-cancel" onclick="hideMachineSelector()">Cancel</button>
-  </div>
-</div>
-
-<!-- Excel Upload Modal -->
-<div class="excel-modal-overlay" id="excelModalOverlay" style="display:none">
-  <div class="excel-modal">
-    <div class="excel-modal-header">
-      <div class="excel-modal-title">📊 Load Factory Data</div>
-      <button class="excel-modal-close" onclick="closeExcelModal()">✕</button>
+    <div class="scroll-indicator" id="heroScrollIndicator">
+      <span>Scroll to explore</span>
+      <span>↓</span>
     </div>
-    <div class="excel-modal-body">
-      <p class="excel-modal-subtitle">Upload your production planning Excel file (<code>.xlsx</code> or <code>.xls</code>) to feed custom factory data into FlowForge's autonomous engine.</p>
+  </section>
 
-      <!-- Drag and drop zone -->
-      <div class="dropzone" id="dropzone" onclick="document.getElementById('excelFileInput').click()">
-        <div class="dropzone-icon">📥</div>
-        <div class="dropzone-text"><strong>Drag &amp; Drop Excel file here</strong></div>
-        <div class="dropzone-sub">or click to browse from computer</div>
-        <input type="file" id="excelFileInput" accept=".xlsx,.xls" style="display:none" onchange="handleFileSelect(event)">
-        <button type="button" class="btn btn-secondary-sm" style="margin-top:10px" onclick="event.stopPropagation(); document.getElementById('excelFileInput').click()">Browse Files</button>
+
+  <!-- ═══ SCREEN 2: EXCEL IMPORT ("Bring your factory.") ═══ -->
+  <section class="section-container screen-import" id="import">
+    <div class="section-label">Data Ingestion</div>
+    <h2 class="section-headline">Bring your factory.</h2>
+
+    <!-- Dropzone Area -->
+    <div class="upload-card" id="dropzone" onclick="document.getElementById('excelFileInput').click()">
+      <input type="file" id="excelFileInput" accept=".xlsx,.xls,.json" style="display:none" onchange="handleFileSelect(event)">
+      <div class="upload-card-content">
+        <span class="upload-plus-icon">+</span>
+        <span>Drop your Excel or JSON file here</span>
       </div>
+    </div>
 
-      <!-- Selected File Info -->
-      <div class="file-selected-info" id="fileSelectedInfo" style="display:none">
-        <span class="icon">📄</span> <span id="selectedFileName">filename.xlsx</span> (<span id="selectedFileSize">0 KB</span>)
+    <!-- Upload Feedback & Actions -->
+    <div class="upload-feedback">
+      <div class="upload-meta" id="uploadMetaText">
+        <strong>factory_schedule.xlsx</strong>, 24 Jobs, 6 Machines, Data validated
       </div>
-
-      <!-- Loading Indicator -->
-      <div class="upload-loading" id="uploadLoading" style="display:none">
-        <div class="spinner"></div>
-        <div id="uploadLoadingText">Reading factory dataset &amp; validating workbook...</div>
+      <div class="upload-actions">
+        <button class="btn-secondary" onclick="loadSampleTemplate()">Sample Excel</button>
+        <button class="btn-secondary" onclick="loadSampleJson()">Sample Job Shop JSON</button>
+        <button class="btn-primary" id="btnRunFlowForge" onclick="runFlowForgeOptimization()">Run FlowForge</button>
       </div>
+    </div>
+  </section>
 
-      <!-- Validation Error Box -->
-      <div class="excel-error-box" id="excelErrorBox" style="display:none">
-        <div class="error-box-title">⚠ Data Validation Failed</div>
-        <div class="error-box-list" id="excelErrorList"></div>
-      </div>
 
-      <!-- Upload Preview Card -->
-      <div class="excel-preview-box" id="excelPreviewBox" style="display:none">
-        <div class="preview-title">✓ Factory Data Loaded</div>
-        <div class="preview-metrics">
-          <div class="preview-metric"><span class="label">Machines</span><span class="val" id="prevMachines">—</span></div>
-          <div class="preview-metric"><span class="label">Jobs</span><span class="val" id="prevJobs">—</span></div>
-          <div class="preview-metric"><span class="label">High Priority</span><span class="val" id="prevHighPriority">—</span></div>
-          <div class="preview-metric"><span class="label">Total Energy</span><span class="val" id="prevEnergy">—</span></div>
+  <!-- ═══ SCREEN 3: FACTORY EXPLORER ("Your factory.") ═══ -->
+  <section class="screen-explorer" id="explorer">
+    <div class="terminal-enclosure">
+      <!-- Hex Screws -->
+      <div class="terminal-screw screw-tl"></div>
+      <div class="terminal-screw screw-tr"></div>
+      <div class="terminal-screw screw-bl"></div>
+      <div class="terminal-screw screw-br"></div>
+
+      <div class="terminal-screen">
+        <div class="terminal-header">
+          <div class="terminal-title">
+            <span>✦</span>
+            <span>FLOWFORGE Factory Explorer</span>
+          </div>
+          <div class="terminal-hamburger">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+
+        <h2 class="explorer-title">Your factory.</h2>
+
+        <!-- 6 Machines Grid -->
+        <div class="machines-grid" id="machinesGrid">
+          <!-- Populated dynamically via app.js -->
         </div>
       </div>
 
-      <div class="template-download-note">
-        Need a sample dataset? <a href="/examples/factory_data_template.xlsx" download="factory_data_template.xlsx">Download Sample Excel Template</a>
+      <!-- Industrial Hardware Rocker Switch -->
+      <div class="terminal-footer-controls">
+        <div class="rocker-switch" title="Terminal Power"></div>
       </div>
     </div>
-    <div class="excel-modal-footer">
-      <button class="btn btn-secondary" onclick="closeExcelModal()">Cancel</button>
-      <button class="btn btn-primary" id="btnConfirmExcel" onclick="uploadAndOptimize()" disabled>Run Autonomous Engine</button>
-    </div>
-  </div>
-</div>
+  </section>
 
-<script src="/static/app.js"></script>
+
+  <!-- ═══ SCREEN 4: CONTROL CENTER (STUDIO DISPLAY MONITOR) ═══ -->
+  <section class="screen-control-center" id="control-center">
+    <!-- Monitor Enclosure -->
+    <div class="monitor-frame">
+      <div class="monitor-camera"></div>
+      <div class="monitor-screen">
+        <div class="monitor-top-bar">FLOWFORGE Control Center Dashboard</div>
+        
+        <h2 class="monitor-greeting" id="monitorGreeting">
+          Good morning. Your factory is <strong>running smoothly.</strong>
+        </h2>
+
+        <!-- Clean Horizontal KPI Strip with Thin Dividers -->
+        <div class="monitor-kpi-strip">
+          <div class="monitor-kpi-item">
+            <div class="kpi-header-row">
+              <span class="kpi-icon">🛡️</span>
+              <span>Resilience</span>
+            </div>
+            <div class="kpi-big-value" id="kpiResilience">87</div>
+          </div>
+
+          <div class="monitor-kpi-item">
+            <div class="kpi-header-row">
+              <span class="kpi-icon">⚙️</span>
+              <span>Machines</span>
+            </div>
+            <div class="kpi-big-value" id="kpiMachines">6/6</div>
+          </div>
+
+          <div class="monitor-kpi-item">
+            <div class="kpi-header-row">
+              <span class="kpi-icon">⚡</span>
+              <span>Energy</span>
+            </div>
+            <div class="kpi-big-value" id="kpiEnergy">980 kWh</div>
+          </div>
+        </div>
+
+        <!-- Gantt Timeline Chart -->
+        <div class="gantt-wrapper">
+          <div class="gantt-grid" id="ganttGrid">
+            <!-- Machine tracks rendered dynamically -->
+          </div>
+          <div class="gantt-ruler" id="ganttRuler">
+            <!-- Time labels rendered dynamically -->
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Monitor Stand -->
+    <div class="monitor-stand-neck"></div>
+    <div class="monitor-stand-base"></div>
+  </section>
+
+
+  <!-- ═══ SCREEN 5: DISRUPTION STATE ═══ -->
+  <section class="section-container screen-disruption" id="disruption">
+    <div class="section-label">Real-Time Simulation</div>
+    <h2 class="section-headline">When conditions change.</h2>
+
+    <!-- Interactive Simulator Controls -->
+    <div class="scenario-controls-bar">
+      <button class="btn-sim danger" id="btnFailM3" onclick="triggerMachineFailure('M3')">🔴 Fail M3 (Press-G2)</button>
+      <button class="btn-sim" id="btnUrgent" onclick="triggerUrgentJob()">⚡ Urgent Order (J99)</button>
+      <button class="btn-sim" id="btnDeadline" onclick="triggerDeadlineShift()">⏰ Deadline Shift</button>
+      <button class="btn-sim success" id="btnRecoverM3" onclick="triggerMachineRecovery('M3')">🔧 Restore M3</button>
+      <button class="btn-sim" id="btnReset" onclick="resetFactoryState()">↻ Reset Factory</button>
+    </div>
+
+    <!-- Disruption Impact Banner -->
+    <div class="disruption-banner" id="disruptionBanner">
+      <div class="disruption-banner-left">
+        <span class="disruption-badge" id="disruptionBadge">M3 OFFLINE</span>
+        <div class="disruption-title" id="disruptionTitle">Production disruption detected</div>
+      </div>
+      <div class="disruption-impact-items">
+        <div class="impact-stat">
+          <span class="impact-stat-val" id="impactJobsAffected">4</span>
+          <span class="impact-stat-lbl">jobs affected</span>
+        </div>
+        <div class="impact-stat">
+          <span class="impact-stat-val" id="impactDeadlineRisks">2</span>
+          <span class="impact-stat-lbl">deadline risks</span>
+        </div>
+        <div class="impact-stat">
+          <span class="impact-stat-val" id="impactDelay">+95 min</span>
+          <span class="impact-stat-lbl">delay without recovery</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ═══ SCREEN 6: RECOVERY ("Back on track.") ═══ -->
+  <section class="section-container screen-recovery" id="recovery">
+    <div class="section-label">Autonomous Recovery</div>
+    <h2 class="section-headline">Back on track.</h2>
+
+    <!-- Comparison Metrics Grid -->
+    <div class="comparison-grid">
+      <!-- Makespan -->
+      <div class="comparison-card">
+        <div class="comparison-card-label">Makespan</div>
+        <div class="comparison-card-transition">
+          <span class="comparison-card-old" id="compMakespanOld">520</span>
+          <span class="comparison-card-arrow">→</span>
+          <span class="comparison-card-new" id="compMakespanNew">445</span>
+        </div>
+        <div class="comparison-card-delta" id="compMakespanDelta">-75 min improved</div>
+      </div>
+
+      <!-- Late Jobs -->
+      <div class="comparison-card">
+        <div class="comparison-card-label">Late Jobs</div>
+        <div class="comparison-card-transition">
+          <span class="comparison-card-old" id="compLateOld">4</span>
+          <span class="comparison-card-arrow">→</span>
+          <span class="comparison-card-new" id="compLateNew">0</span>
+        </div>
+        <div class="comparison-card-delta" id="compLateDelta">Zero late deliveries</div>
+      </div>
+
+      <!-- Energy -->
+      <div class="comparison-card">
+        <div class="comparison-card-label">Energy</div>
+        <div class="comparison-card-transition">
+          <span class="comparison-card-old" id="compEnergyOld">1120</span>
+          <span class="comparison-card-arrow">→</span>
+          <span class="comparison-card-new" id="compEnergyNew">980</span>
+        </div>
+        <div class="comparison-card-delta" id="compEnergyDelta">-140 kWh saved</div>
+      </div>
+
+      <!-- Resilience -->
+      <div class="comparison-card">
+        <div class="comparison-card-label">Resilience</div>
+        <div class="comparison-card-transition">
+          <span class="comparison-card-old" id="compResilienceOld">54</span>
+          <span class="comparison-card-arrow">→</span>
+          <span class="comparison-card-new" id="compResilienceNew">81</span>
+        </div>
+        <div class="comparison-card-delta" id="compResilienceDelta">+27 points recovered</div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ═══ SCREEN 7: DECISION REPORT (ENGINEERING EXPLANATION) ═══ -->
+  <section class="section-container screen-decision" id="decision">
+    <div class="section-label">Engineering Transparency</div>
+    
+    <div class="report-card">
+      <div class="report-header">
+        <h3 class="report-title" id="reportTitle">Why was J7 moved?</h3>
+        <span class="report-badge">AI-generated explanation</span>
+      </div>
+
+      <!-- Visual Flow: M3 -> J7 -> M5 -->
+      <div class="report-flow">
+        <div class="flow-node offline">
+          <span class="flow-node-title" id="flowSourceMachine">M3</span>
+          <span class="flow-node-sub">Offline Station</span>
+        </div>
+        <span class="flow-arrow">↓</span>
+        <div class="flow-node">
+          <span class="flow-node-title" id="flowJobId">J7</span>
+          <span class="flow-node-sub" id="flowJobName">Exhaust Manifold</span>
+        </div>
+        <span class="flow-arrow">↓</span>
+        <div class="flow-node destination">
+          <span class="flow-node-title" id="flowTargetMachine">M5</span>
+          <span class="flow-node-sub">Available Station</span>
+        </div>
+      </div>
+
+      <!-- Engineering Rationale -->
+      <p class="report-explanation-text" id="reportText">
+        M3 became unavailable. M5 had sufficient capacity to protect the production deadline while increasing energy consumption by only 3%.
+      </p>
+
+      <!-- Key Impact Metrics -->
+      <div class="report-metrics-row">
+        <div class="report-metric-box">
+          <div class="label">Deadline Protection</div>
+          <div class="val positive" id="metricDeadlineProtection">+42 min</div>
+        </div>
+        <div class="report-metric-box">
+          <div class="label">Energy Impact</div>
+          <div class="val" id="metricEnergyImpact">+3%</div>
+        </div>
+        <div class="report-metric-box">
+          <div class="label">M5 Capacity Utilization</div>
+          <div class="val" id="metricCapacityUtilization">91%</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Site Footer -->
+  <footer class="site-footer">
+    <p><strong>FLOWFORGE AI</strong> — Autonomous Production Resilience &amp; Optimization</p>
+  </footer>
+
+  <!-- Hover Tooltip -->
+  <div id="ganttTooltip" class="gantt-tooltip"></div>
+
+  <!-- GSAP & ScrollTrigger Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+
+  <!-- Application Logic -->
+  <script src="/static/app.js?v=5.0"></script>
 
 </body>
 </html>

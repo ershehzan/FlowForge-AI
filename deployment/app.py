@@ -22,6 +22,7 @@ from agents.machine_sim import MachineSimulator
 from agents.factory.state import FactoryState
 from agents.factory.machine import get_available_machine_ids
 from agents.factory.excel_parser import ExcelParser
+from agents.factory.json_parser import JsonParser
 from agents.disruption.engine import DisruptionEngine
 from agents.disruption import types as disruption_types
 from agents.resilience.metrics import calculate_all_metrics
@@ -46,17 +47,54 @@ app.add_middleware(
 # Serve frontend static files
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")
 EXAMPLES_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "examples")
+ANIMATION_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Animation-jpg")
 
 app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 if os.path.exists(EXAMPLES_DIR):
     app.mount("/examples", StaticFiles(directory=EXAMPLES_DIR), name="examples")
+if os.path.exists(ANIMATION_DIR):
+    app.mount("/frames", StaticFiles(directory=ANIMATION_DIR), name="frames")
 
+
+@app.get("/api/frames-info")
+async def get_frames_info():
+    """Detect frames directory pattern, first frame, last frame, and count dynamically."""
+    if not os.path.exists(ANIMATION_DIR):
+        return {"error": "Animation folder not found", "count": 0, "frames": []}
+    files = sorted([f for f in os.listdir(ANIMATION_DIR) if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp'))])
+    if not files:
+        return {"count": 0, "frames": []}
+
+    import re
+    digits = 3
+    prefix = "ezgif-frame-"
+    ext = ".jpg"
+    m = re.match(r'^(.*?)(\d+)(\.[a-zA-Z0-9]+)$', files[0])
+    if m:
+        prefix = m.group(1)
+        digits = len(m.group(2))
+        ext = m.group(3)
+
+    return {
+        "count": len(files),
+        "total_frames": len(files),
+        "first_frame": 1,
+        "last_frame": len(files),
+        "prefix": prefix,
+        "digits": digits,
+        "extension": ext,
+        "pattern": f"{prefix}{{index:0{digits}d}}{ext}",
+        "frames": [f"/frames/{f}" for f in files]
+    }
 
 
 @app.get("/", include_in_schema=False)
 async def root():
     """Serve the FlowForge dashboard."""
-    return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
+    return FileResponse(
+        os.path.join(FRONTEND_DIR, "index.html"),
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache", "Expires": "0"}
+    )
 
 
 # Global factory state (initialized with default 6 machines, 12 jobs)
@@ -86,7 +124,11 @@ class DisruptionRequest(BaseModel):
 
 @app.post("/upload_jobs")
 async def upload_jobs(session_id: str, file: UploadFile = File(...)):
-    path = f"data/{session_id}.csv"
+    safe_session = re.sub(r'[^a-zA-Z0-9_\-]', '', session_id)
+    if not safe_session:
+        return JSONResponse(status_code=400, content={"error": "Invalid session_id"})
+    os.makedirs("data", exist_ok=True)
+    path = os.path.join("data", f"{safe_session}.csv")
     with open(path, "wb") as f:
         f.write(await file.read())
 
@@ -176,18 +218,22 @@ async def upload_factory_excel(file: UploadFile = File(...)):
     filename = file.filename or "uploaded.xlsx"
     ext = os.path.splitext(filename)[1].lower()
 
-    if ext not in [".xlsx", ".xls"]:
+    if ext not in [".xlsx", ".xls", ".json"]:
         return JSONResponse(
             status_code=400,
             content={
                 "success": False,
-                "errors": [{"sheet": "File", "row": 0, "column": "Format", "message": f"Unsupported file format '{ext}'. Only .xlsx and .xls are supported."}],
-                "error_messages": [f"• Unsupported file format '{ext}'. Only .xlsx and .xls are supported."],
+                "errors": [{"sheet": "File", "row": 0, "column": "Format", "message": f"Unsupported file format '{ext}'. Supported formats: .xlsx, .xls, .json."}],
+                "error_messages": [f"• Unsupported file format '{ext}'. Supported formats: .xlsx, .xls, .json."],
             }
         )
 
     content = await file.read()
-    parser = ExcelParser()
+    if ext == ".json":
+        parser = JsonParser()
+    else:
+        parser = ExcelParser()
+
     parsed = parser.parse(content, filename=filename)
 
     if not parsed["success"]:
@@ -210,16 +256,18 @@ async def upload_factory_excel(file: UploadFile = File(...)):
     factory.recovery_schedule = None
     factory.schedule_state = "BASELINE"
     factory.factory_status = "OPERATIONAL"
-    factory.active_disruptions = []
+    factory.active_disruptions = parsed.get("disruptions", [])
 
     # Run Autonomous Scheduler on imported factory state
     available = factory.get_available_machine_ids()
     scheduler = Scheduler(available)
     energy_map = factory.get_machine_energy_map()
+    unavail_map = {m_id: m.get("unavailable_periods", []) for m_id, m in factory.machines.items()}
 
     baseline = scheduler.ga_schedule(
         factory.get_active_jobs(),
         machine_energy=energy_map,
+        machine_unavail=unavail_map,
     )
     factory.set_baseline_schedule(baseline)
 
