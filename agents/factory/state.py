@@ -13,6 +13,7 @@ from copy import deepcopy
 
 from agents.factory.machine import get_default_machines, get_available_machine_ids, get_machine_energy_map
 from agents.factory.job import get_default_jobs, get_active_jobs
+from agents.erp.engine import ERPEngine
 
 
 # Schedule state constants
@@ -32,7 +33,7 @@ class FactoryState:
     Centralized factory state container.
 
     Holds all machines, jobs, schedules (baseline/disrupted/recovery),
-    disruption history, and factory status.
+    disruption history, ERP operational models, and factory status.
     """
 
     def __init__(self, machines=None, jobs=None, data_source="Demo Factory"):
@@ -47,7 +48,6 @@ class FactoryState:
         self.machines = machines if machines is not None else get_default_machines()
         self.jobs = jobs if jobs is not None else get_default_jobs()
         self.data_source = data_source
-
 
         # Schedule tracking: baseline is preserved, never overwritten
         self.baseline_schedule = None
@@ -65,6 +65,12 @@ class FactoryState:
 
         # Active disruptions (list of disruption dicts)
         self.active_disruptions = []
+
+        # ERP-lite Operations Engine (Orders, Inventory, Maintenance, Capacity)
+        self.erp_engine = ERPEngine(self)
+
+        # Historical audit records with full schedule deltas & decision reports
+        self.history_records = []
 
     def get_available_machine_ids(self):
         """Return list of machine IDs that are currently available."""
@@ -122,10 +128,14 @@ class FactoryState:
         total = len(self.machines)
         return available, total
 
+    def add_history_record(self, record: dict):
+        """Append an audited decision / disruption record to history."""
+        self.history_records.insert(0, record)  # Newest first
+
     def reset(self):
         """
         Reset factory to clean baseline state.
-        Restores all machines, jobs, and clears schedules.
+        Restores all machines, jobs, ERP engine, and clears active schedules.
         """
         self.machines = get_default_machines()
         self.jobs = get_default_jobs()
@@ -136,7 +146,8 @@ class FactoryState:
         self.schedule_state = STATE_BASELINE
         self.factory_status = FACTORY_OPERATIONAL
         self.active_disruptions = []
-        # Keep disruption_history for audit trail
+        self.erp_engine = ERPEngine(self)
+        # Preserve disruption_history and history_records for audit trail
 
     def to_dict(self):
         """Serialize factory state for API responses."""
@@ -154,5 +165,8 @@ class FactoryState:
             "disrupted_schedule": self.disrupted_schedule,
             "recovery_schedule": self.recovery_schedule,
             "current_schedule": self.get_current_schedule(),
+            "erp": self.erp_engine.to_dict(),
+            "erp_state": self.erp_engine.to_dict(),
+            "history": self.history_records,
         }
 
