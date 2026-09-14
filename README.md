@@ -211,7 +211,8 @@ Try the following interactive flows directly from the dashboard:
 
 ## 🏆 **Author & License**
 
-**Shehzan Khan**  
+**Shehzan Khan**
+**Shorya Agrawal**  
 *FlowForge AI — Autonomous Production Resilience & Optimization*
 
 Released under the **MIT License**.
