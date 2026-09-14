@@ -221,6 +221,7 @@ async function detectFramesManifest(basePath) {
 function setupGSAPScrollTrigger(canvas, renderCallback) {
   if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") {
     console.warn("GSAP / ScrollTrigger not loaded");
+    setupNavHeaderVisibility();
     return;
   }
 
@@ -228,6 +229,8 @@ function setupGSAPScrollTrigger(canvas, renderCallback) {
 
   const heroSection = document.getElementById("hero");
   if (!heroSection) return;
+
+  setupNavHeaderVisibility();
 
   let rafPending = false;
   function requestRender() {
@@ -257,9 +260,20 @@ function setupGSAPScrollTrigger(canvas, renderCallback) {
         requestRender();
       }
 
-      const indicator = document.getElementById("heroScrollIndicator");
-      if (indicator) {
-        indicator.style.opacity = Math.max(0, 1 - self.progress * 4);
+      const heroCanvas = document.getElementById("heroCanvas");
+      if (heroCanvas) {
+        const blurPx = Math.max(0, 10 * (1 - self.progress * 3));
+        heroCanvas.style.filter = `blur(${blurPx}px)`;
+      }
+
+      const heroFooterContent = document.getElementById("heroFooterContent");
+      if (heroFooterContent) {
+        heroFooterContent.style.opacity = Math.max(0, 1 - self.progress * 4);
+      }
+
+      const heroBrand = document.getElementById("heroBrand");
+      if (heroBrand) {
+        heroBrand.style.opacity = Math.max(0, 1 - self.progress * 3.5);
       }
 
       const heroContent = document.getElementById("heroContent");
@@ -267,10 +281,29 @@ function setupGSAPScrollTrigger(canvas, renderCallback) {
         const opacity = Math.max(0, 1 - self.progress * 2.2);
         const translateY = -self.progress * 60;
         heroContent.style.opacity = opacity;
-        heroContent.style.transform = `translate(-50%, ${translateY}px)`;
+        heroContent.style.transform = `translate(-50%, calc(-50% + ${translateY}px))`;
       }
     },
   });
+}
+
+function setupNavHeaderVisibility() {
+  const navWrapper = document.querySelector(".nav-wrapper");
+  const importSection = document.getElementById("import");
+
+  if (!navWrapper || !importSection) return;
+
+  function updateNav() {
+    const rect = importSection.getBoundingClientRect();
+    if (rect.top <= window.innerHeight * 0.85) {
+      navWrapper.classList.add("visible");
+    } else {
+      navWrapper.classList.remove("visible");
+    }
+  }
+
+  window.addEventListener("scroll", updateNav, { passive: true });
+  updateNav();
 }
 
 // ═════════════════════════════════════════════════════════════════════════
