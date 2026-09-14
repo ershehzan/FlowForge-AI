@@ -1,18 +1,51 @@
-# ⚡ **FlowForge AI** : *Autonomous Production Resilience & Optimization*
+# ⚡ FlowForge AI — *Autonomous Production Resilience & Optimization*
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-Backend-success?logo=fastapi&logoColor=white)
-![Genetic Algorithm](https://img.shields.io/badge/Genetic%20Algorithm-Multi--Objective-red?logo=dna&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.121-success?logo=fastapi&logoColor=white)
+![Claude](https://img.shields.io/badge/AI%20Copilot-Claude%203.5%20Sonnet-blueviolet?logo=anthropic&logoColor=white)
+![Genetic Algorithm](https://img.shields.io/badge/Optimizer-Multi--Objective%20GA-red)
 ![Tests](https://img.shields.io/badge/Tests-73%20Passing-brightgreen?logo=pytest&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-orange)
 
-> **“When the factory changes, the schedule changes with it.”**
+> **"When the factory changes, the schedule changes with it."**
 
-**FlowForge AI** is an industrial-grade autonomous production resilience and shop-floor scheduling system. Designed with an Apple-grade editorial interface and high-performance algorithmic backend, FlowForge detects machine failures, rush orders, and bottleneck shifts in real time, computes multi-objective optimized recovery plans, and visualizes shop-floor dynamics through dynamic Gantt charts and interactive machine controls.
+**FlowForge AI** is an industrial-grade autonomous production resilience and shop-floor scheduling system. It detects machine failures, rush orders, and bottleneck shifts in real time, computes multi-objective optimized recovery plans, and visualizes shop-floor dynamics through dynamic Gantt charts and interactive machine controls — all backed by a Genetic Algorithm optimizer and an AI-powered Operations Copilot.
 
 ---
 
-## 🌟 **Key Features**
+## 📑 Table of Contents
+
+- [Project Overview](#-project-overview)
+- [Key Features](#-key-features)
+- [Technologies Used](#-technologies-used)
+- [AI Tools & Models](#-ai-tools--models)
+- [Project Structure](#-project-structure)
+- [Supported Data Formats](#-supported-data-formats)
+- [Setup & Installation](#-setup--installation)
+- [Environment Configuration](#-environment-configuration)
+- [Usage](#-usage)
+- [REST API Reference](#-rest-api-reference)
+- [Running Tests](#-running-tests)
+- [Scripts & Utilities](#-scripts--utilities)
+- [Disruption & Resilience Walkthrough](#-disruption--resilience-walkthrough)
+- [Authors & License](#-authors--license)
+
+---
+
+## 🏭 Project Overview
+
+FlowForge AI solves a core challenge in modern manufacturing: **how does a factory stay productive when reality diverges from the plan?**
+
+It combines:
+- A **Multi-Objective Genetic Algorithm** (GA) scheduler that optimizes makespan, tardiness, energy, and utilization simultaneously.
+- An **Autonomous Disruption Engine** that reacts to machine failures, rush orders, and deadline shifts in real time.
+- An **AI Operations Copilot** (powered by Claude 3.5 Sonnet) that reasons over live factory state and answers engineering questions in natural language.
+- An **ERP-lite Coordination Layer** that tracks production orders, raw material inventory, machine maintenance, and capacity in a unified view.
+- An **Apple-grade editorial web UI** with scroll-driven canvas animation, real-time Gantt rendering, and a full Factory Explorer.
+
+---
+
+## 🌟 Key Features
 
 ### 🎨 1. Apple-Grade Editorial Industrial UI
 - **Frame-by-Frame Scroll Storytelling**: Interactive canvas-driven machine assembly animation synchronized to page scroll using GSAP ScrollTrigger and high-DPI canvas rendering.
