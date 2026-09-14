@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="FlowForge — Autonomous Manufacturing Operations & Resilience Platform. When the factory changes, the production plan changes with it.">
-  <title>FLOWFORGE — Production that adapts.</title>
+  <title>FLOWFORGE — Production that adapts</title>
   <link rel="stylesheet" href="/static/styles.css?v=6.1">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
 </head>
@@ -35,26 +35,36 @@
 
   <!-- ═══ SCREEN 1: HERO (PINNED CANVAS SCROLL ANIMATION) ═══ -->
   <section class="hero-section" id="hero">
-    <!-- Full-screen Canvas Background behind all text -->
+    <!-- Hero Top Brand Header -->
+    <div class="hero-brand" id="heroBrand">FLOWFORGE</div>
+
+    <!-- Oversized Editorial Typography (Layer 1) -->
+    <div class="hero-content" id="heroContent">
+      <h1 class="hero-title">
+        <span>PRODUCTION</span>
+        <span>THAT</span>
+        <span>ADAPTS</span>
+      </h1>
+    </div>
+
+    <!-- Full-screen Canvas Container (Layer 2 - Machine visual overlapping text) -->
     <div class="hero-canvas-container" id="heroCanvasContainer">
       <canvas id="heroCanvas" class="hero-canvas"></canvas>
     </div>
 
-    <!-- Hero Headline & Subtitle floating in front in the middle -->
-    <div class="hero-content" id="heroContent">
-      <h1 class="hero-title">Production that adapts.</h1>
-      <p class="hero-sub">Autonomous production resilience. When the factory changes, the schedule changes with it.</p>
+    <!-- Supporting Copy & Scroll Indicator (Layer 3) -->
+    <div class="hero-footer-content" id="heroFooterContent">
+      <p class="hero-sub">When the factory changes, the schedule changes with it.</p>
+      <div class="scroll-indicator" id="heroScrollIndicator">
+        <span class="scroll-text">SCROLL TO EXPLORE</span>
+        <span class="scroll-arrow">↓</span>
+      </div>
     </div>
 
     <!-- Preloader minimal percentage badge -->
     <div class="hero-loader" id="heroLoader">
       <div class="hero-loader-spinner"></div>
       <div class="hero-loader-text" id="heroLoaderText">Preloading 0%</div>
-    </div>
-
-    <div class="scroll-indicator" id="heroScrollIndicator">
-      <span>Scroll to explore</span>
-      <span>↓</span>
     </div>
   </section>
 
