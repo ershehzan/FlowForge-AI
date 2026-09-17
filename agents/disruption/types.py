@@ -22,6 +22,12 @@ URGENT_JOB = "urgent_job"
 JOB_CANCELLATION = "job_cancellation"
 DEADLINE_CHANGE = "deadline_change"
 MACHINE_DOWNTIME = "machine_downtime"
+PLANNED_DOWNTIME = "planned_downtime"
+MAINTENANCE = "maintenance"
+MATERIAL_SHORTAGE = "material_shortage"
+QUALITY_ISSUE = "quality_issue"
+MULTIPLE_FAILURE = "multiple_failure"
+ENERGY_CONSTRAINT = "energy_constraint"
 
 ALL_DISRUPTION_TYPES = [
     MACHINE_FAILURE,
@@ -30,6 +36,12 @@ ALL_DISRUPTION_TYPES = [
     JOB_CANCELLATION,
     DEADLINE_CHANGE,
     MACHINE_DOWNTIME,
+    PLANNED_DOWNTIME,
+    MAINTENANCE,
+    MATERIAL_SHORTAGE,
+    QUALITY_ISSUE,
+    MULTIPLE_FAILURE,
+    ENERGY_CONSTRAINT,
 ]
 
 
@@ -99,3 +111,68 @@ def machine_downtime(machine_id, duration_minutes=60):
         duration_minutes=duration_minutes,
         description=f"Machine {machine_id} scheduled for {duration_minutes}min maintenance.",
     )
+
+
+def planned_downtime(machine_id, duration_minutes=90, reason="Preventive service"):
+    """Create a planned downtime event."""
+    return _make_disruption(
+        PLANNED_DOWNTIME,
+        machine_id=machine_id,
+        duration_minutes=duration_minutes,
+        reason=reason,
+        description=f"Machine {machine_id} scheduled for {duration_minutes}min planned maintenance ({reason}).",
+    )
+
+
+def maintenance(machine_id, duration_minutes=90, reason="Preventive service"):
+    """Create a maintenance event."""
+    return _make_disruption(
+        MAINTENANCE,
+        machine_id=machine_id,
+        duration_minutes=duration_minutes,
+        reason=reason,
+        description=f"Machine {machine_id} undergoing {duration_minutes}min maintenance ({reason}).",
+    )
+
+
+def material_shortage(material_id, description=None):
+    """Create a material shortage disruption event."""
+    desc = description or f"Critical material {material_id} is temporarily unavailable from supplier."
+    return _make_disruption(
+        MATERIAL_SHORTAGE,
+        material_id=material_id,
+        description=desc,
+    )
+
+
+def quality_issue(machine_id, defect_rate=0.15, description=None):
+    """Create a quality calibration issue event."""
+    desc = description or f"Machine {machine_id} experienced quality calibration drift (defect rate {defect_rate*100:.0f}%)."
+    return _make_disruption(
+        QUALITY_ISSUE,
+        machine_id=machine_id,
+        defect_rate=defect_rate,
+        description=desc,
+    )
+
+
+def multiple_failure(machine_ids, description=None):
+    """Create a cascading multiple machine failure event."""
+    m_list = machine_ids if isinstance(machine_ids, list) else [m.strip() for m in str(machine_ids).split(",")]
+    desc = description or f"Multiple stations ({', '.join(m_list)}) have suffered concurrent mechanical failure."
+    return _make_disruption(
+        MULTIPLE_FAILURE,
+        machine_ids=m_list,
+        description=desc,
+    )
+
+
+def energy_constraint(threshold_kw=65.0, description=None):
+    """Create a factory peak energy constraint optimization event."""
+    desc = description or f"Factory peak electrical draw restricted to {threshold_kw} kW. Shift to energy-aware schedule."
+    return _make_disruption(
+        ENERGY_CONSTRAINT,
+        threshold_kw=threshold_kw,
+        description=desc,
+    )
+

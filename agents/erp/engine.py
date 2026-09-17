@@ -220,9 +220,83 @@ class ERPEngine:
 
     def __init__(self, factory_state):
         self.factory_state = factory_state
-        self.orders = get_default_orders()
-        self.inventory = get_default_inventory()
-        self.maintenance = get_default_maintenance(factory_state.machines)
+        self.rebuild_from_state()
+
+    def rebuild_from_state(self):
+        """Rebuild orders, inventory, and maintenance from factory_state if rich data exists."""
+        fs = self.factory_state
+
+        # 1. Orders
+        if getattr(fs, "production_orders", None):
+            self.orders = []
+            for o in fs.production_orders:
+                prio = o.get("priority", 3)
+                if isinstance(prio, str):
+                    prio_map = {"CRITICAL": 5, "RUSH": 5, "HIGH": 4, "MEDIUM": 3, "NORMAL": 3, "LOW": 2, "LOWEST": 1}
+                    prio = prio_map.get(prio.upper(), 3)
+                self.orders.append(
+                    ProductionOrder(
+                        order_id=o.get("order_id", "ORD-00"),
+                        product_name=o.get("product_name", "Product"),
+                        customer=o.get("customer", "Customer"),
+                        quantity=int(o.get("quantity", 100)),
+                        priority=int(prio),
+                        deadline=int(o.get("deadline", 120)),
+                        status=o.get("status", "In Production"),
+                        progress=int(o.get("progress", 25)),
+                        risk_level=o.get("risk_level", "Low"),
+                        job_ids=o.get("job_ids", []),
+                        required_materials=o.get("required_materials", {o.get("material_required", "RM-001"): int(o.get("quantity", 100))}),
+                    )
+                )
+        else:
+            self.orders = get_default_orders()
+
+        # 2. Inventory
+        if getattr(fs, "inventory_items", None):
+            self.inventory = []
+            for inv in fs.inventory_items:
+                item = InventoryItem(
+                    part_id=inv.get("material_id", inv.get("part_id", "RM-001")),
+                    part_name=inv.get("material_name", inv.get("part_name", "Material")),
+                    category=inv.get("material_type", inv.get("category", "Raw Material")),
+                    available_qty=int(inv.get("available_quantity", inv.get("available_qty", 1000))),
+                    reserved_qty=int(inv.get("reserved_quantity", inv.get("reserved_qty", 500))),
+                    incoming_qty=int(inv.get("incoming_quantity", inv.get("incoming_qty", 500))),
+                    reorder_level=int(inv.get("reorder_level", 200)),
+                    unit=inv.get("unit", "kg"),
+                    unit_cost=float(inv.get("standard_cost", inv.get("unit_cost", 20.0))),
+                    status=inv.get("status", "IN STOCK"),
+                    at_risk_orders=[],
+                )
+                item.calculate_status()
+                self.inventory.append(item)
+        else:
+            self.inventory = get_default_inventory()
+
+        # 3. Maintenance
+        if getattr(fs, "maintenance_records", None) and fs.maintenance_records:
+            self.maintenance = []
+            for m in fs.maintenance_records:
+                m_id = m.get("machine_id", "M01")
+                m_name = fs.machines.get(m_id, {}).get("name", m_id) if hasattr(fs, "machines") else m_id
+                self.maintenance.append(
+                    MaintenanceRecord(
+                        machine_id=m_id,
+                        machine_name=m_name,
+                        health_score=int(m.get("health_score", 90)),
+                        status="MAINTENANCE" if m.get("status") == "SCHEDULED" else "RUNNING",
+                        last_maintenance=str(m.get("last_maintenance", "Recent")),
+                        next_maintenance=str(m.get("scheduled_start", "Upcoming")),
+                        runtime_hours=float(m.get("runtime_hours", 80.0)),
+                        downtime_minutes=int(m.get("duration_minutes", 0)),
+                        scheduled_window=[0, int(m.get("duration_minutes", 60))] if m.get("scheduled_start") else [],
+                        active_issues=[m.get("reason")] if m.get("reason") else [],
+                    )
+                )
+        else:
+            self.maintenance = get_default_maintenance(fs.machines)
+
 
     def synchronize(self):
         """Sync ERP state with current factory machines and schedule."""

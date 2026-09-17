@@ -95,10 +95,14 @@ class GAOptimizer:
 
     # Step 4: Order crossover (OX)
     def crossover(self, p1, p2):
+        if len(p1) < 2:
+            return list(p1)  # nothing to crossover with 0 or 1 job
         a, b = sorted(random.sample(range(len(p1)), 2))
         child = [None] * len(p1)
         child[a:b] = p1[a:b]
-        fill = [j for j in p2 if j not in child]
+        # Use job_id for membership check instead of dict identity (dicts are not hashable)
+        child_ids = {j["job_id"] for j in child if j is not None}
+        fill = [j for j in p2 if j["job_id"] not in child_ids]
         idx = 0
         for i in range(len(child)):
             if child[i] is None:
@@ -108,12 +112,17 @@ class GAOptimizer:
 
     # Step 5: Mutation (swap two jobs)
     def mutate(self, chromosome):
-        if random.random() < self.mutation_rate:
+        if len(chromosome) >= 2 and random.random() < self.mutation_rate:
             a, b = random.sample(range(len(chromosome)), 2)
             chromosome[a], chromosome[b] = chromosome[b], chromosome[a]
 
     # Step 6: Main GA loop
     def optimize(self):
+        if not self.jobs:
+            return {"chrom": [], "fitness": 0.0}
+        if len(self.jobs) == 1:
+            return {"chrom": list(self.jobs), "fitness": self.evaluate(list(self.jobs))}
+
         population = []
 
         # initialize population

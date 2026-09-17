@@ -66,11 +66,55 @@ class FactoryState:
         # Active disruptions (list of disruption dicts)
         self.active_disruptions = []
 
+        # Rich industrial entities
+        self.production_lines = []
+        self.machine_capabilities = []
+        self.production_orders = []
+        self.operations = []
+        self.materials = []
+        self.inventory_items = []
+        self.maintenance_records = []
+        self.downtime_records = []
+        self.energy_observations = []
+        self.quality_observations = []
+        self.shifts = []
+        self.dependencies = []
+        self.scenarios = []
+
         # ERP-lite Operations Engine (Orders, Inventory, Maintenance, Capacity)
         self.erp_engine = ERPEngine(self)
 
         # Historical audit records with full schedule deltas & decision reports
         self.history_records = []
+
+    def load_normalized_data(self, data: dict, data_source: str = "Industrial Factory"):
+        """
+        Load complete normalized industrial factory dataset.
+        Updates machines, jobs, and all 13 rich operational collections.
+        """
+        self.data_source = data_source
+        if "machines" in data and data["machines"]:
+            self.machines = data["machines"]
+        if "jobs" in data and data["jobs"]:
+            self.jobs = data["jobs"]
+
+        self.production_lines = data.get("production_lines", [])
+        self.machine_capabilities = data.get("machine_capabilities", [])
+        self.production_orders = data.get("production_orders", [])
+        self.operations = data.get("operations", [])
+        self.materials = data.get("materials", [])
+        self.inventory_items = data.get("inventory", [])
+        self.maintenance_records = data.get("maintenance", [])
+        self.downtime_records = data.get("downtime", [])
+        self.energy_observations = data.get("energy", [])
+        self.quality_observations = data.get("quality", [])
+        self.shifts = data.get("shifts", [])
+        self.dependencies = data.get("dependencies", [])
+        self.scenarios = data.get("scenarios", [])
+        if "disruptions" in data and data["disruptions"]:
+            self.active_disruptions = data["disruptions"]
+
+        self.erp_engine.rebuild_from_state()
 
     def get_available_machine_ids(self):
         """Return list of machine IDs that are currently available."""
@@ -152,6 +196,7 @@ class FactoryState:
     def to_dict(self):
         """Serialize factory state for API responses."""
         available, total = self.get_machine_count()
+        erp_data = self.erp_engine.to_dict()
         return {
             "factory_status": self.factory_status,
             "schedule_state": self.schedule_state,
@@ -165,8 +210,24 @@ class FactoryState:
             "disrupted_schedule": self.disrupted_schedule,
             "recovery_schedule": self.recovery_schedule,
             "current_schedule": self.get_current_schedule(),
-            "erp": self.erp_engine.to_dict(),
-            "erp_state": self.erp_engine.to_dict(),
+            # Both keys are included for backward-compat; prefer 'erp_state' in new code
+            "erp": erp_data,
+            "erp_state": erp_data,
             "history": self.history_records,
+            # Rich industrial factory entities
+            "production_lines": self.production_lines,
+            "machine_capabilities": self.machine_capabilities,
+            "production_orders": self.production_orders or erp_data.get("orders", []),
+            "operations": self.operations,
+            "materials": self.materials,
+            "inventory": erp_data.get("inventory", self.inventory_items),
+            "maintenance": erp_data.get("maintenance", self.maintenance_records),
+            "downtime": self.downtime_records,
+            "energy": self.energy_observations,
+            "quality": self.quality_observations,
+            "shifts": self.shifts,
+            "dependencies": self.dependencies,
+            "scenarios": self.scenarios,
         }
+
 
