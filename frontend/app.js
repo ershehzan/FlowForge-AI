@@ -77,6 +77,8 @@ document.addEventListener("DOMContentLoaded", () => {
   initHeroCanvasAnimation();
   initFlowForgeEngine();
   setupDropzone();
+  initFloatingCopilot();
+  setupSectionScrollReveals();
 });
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -456,7 +458,7 @@ function renderCommandCenter() {
     ? (state.recoveryResilience ? state.recoveryResilience.score : 81)
     : (state.baselineResilience ? state.baselineResilience.score : 87);
 
-  if (kpiRes) kpiRes.innerHTML = `${resilienceScore}<span class="kpi-sub-unit">/100</span>`;
+  if (kpiRes) animateKPIValue(kpiRes, resilienceScore, "/100");
   if (kpiResDelta) {
     if (state.isDisrupted) {
       kpiResDelta.textContent = "Restored: 54 → 81 pts";
@@ -498,10 +500,10 @@ function renderCommandCenter() {
   const energyVal = state.isDisrupted
     ? (state.recoveryMetrics ? state.recoveryMetrics.energy_kwh : 980)
     : (state.baselineMetrics ? state.baselineMetrics.energy_kwh : 980);
-  if (kpiEnergy) kpiEnergy.innerHTML = `${Math.round(energyVal)}<span class="kpi-sub-unit">kWh</span>`;
+  if (kpiEnergy) animateKPIValue(kpiEnergy, Math.round(energyVal), "kWh");
 
   const utilVal = state.isDisrupted ? 88.2 : 84.5;
-  if (kpiUtil) kpiUtil.innerHTML = `${utilVal}<span class="kpi-sub-unit">%</span>`;
+  if (kpiUtil) animateKPIValue(kpiUtil, utilVal, "%");
 
   // Render Attention Required alerts
   renderAttentionRequiredList();
@@ -1037,10 +1039,104 @@ function renderAnalyticsModule() {
   }
 }
 
-// ── MODULE 7: AI OPERATIONS COPILOT ──
-async function askCopilotPreset(question) {
+// ── MODULE 7: FLOATING FLOWFORGE AI OPERATIONS COPILOT ──
+function initFloatingCopilot() {
+  const floatBtn = document.getElementById("copilotFloatingBtn");
+  const win = document.getElementById("copilotFloatWindow");
+  const closeBtn = document.getElementById("copilotWinClose");
+  const queryInput = document.getElementById("copilotQueryInput");
+
+  if (!floatBtn || !win) return;
+
+  floatBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleCopilotWindow();
+  });
+
+  if (closeBtn) {
+    closeBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      closeCopilotWindow();
+    });
+  }
+
+  // Close on Escape key
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && win.classList.contains("open")) {
+      closeCopilotWindow();
+    }
+  });
+
+  // Close on click outside window & float button
+  document.addEventListener("click", (e) => {
+    if (win.classList.contains("open")) {
+      if (!win.contains(e.target) && !floatBtn.contains(e.target)) {
+        closeCopilotWindow();
+      }
+    }
+  });
+
+  // Support Enter = send, Shift+Enter = newline
+  if (queryInput) {
+    queryInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        submitCopilotQuery();
+      }
+    });
+
+    // Auto-adjust textarea height up to 80px
+    queryInput.addEventListener("input", () => {
+      queryInput.style.height = "auto";
+      queryInput.style.height = Math.min(80, queryInput.scrollHeight) + "px";
+    });
+  }
+}
+
+function toggleCopilotWindow() {
+  const win = document.getElementById("copilotFloatWindow");
+  if (!win) return;
+  if (win.classList.contains("open")) {
+    closeCopilotWindow();
+  } else {
+    openCopilotWindow();
+  }
+}
+
+function openCopilotWindow() {
+  const win = document.getElementById("copilotFloatWindow");
+  const floatBtn = document.getElementById("copilotFloatingBtn");
   const input = document.getElementById("copilotQueryInput");
-  if (input) input.value = question;
+
+  if (!win) return;
+  win.classList.add("open");
+  win.setAttribute("aria-hidden", "false");
+  if (floatBtn) floatBtn.setAttribute("aria-expanded", "true");
+
+  if (input) {
+    setTimeout(() => input.focus(), 150);
+  }
+}
+
+function closeCopilotWindow() {
+  const win = document.getElementById("copilotFloatWindow");
+  const floatBtn = document.getElementById("copilotFloatingBtn");
+
+  if (!win) return;
+  win.classList.remove("open");
+  win.setAttribute("aria-hidden", "true");
+  if (floatBtn) {
+    floatBtn.setAttribute("aria-expanded", "false");
+  }
+}
+
+async function askCopilotPreset(question) {
+  openCopilotWindow();
+  const input = document.getElementById("copilotQueryInput");
+  if (input) {
+    input.value = question;
+    input.style.height = "auto";
+  }
   await submitCopilotQuery();
 }
 
@@ -1058,9 +1154,17 @@ async function submitCopilotQuery() {
   const actionsList = document.getElementById("copilotActionsList");
   const providerName = document.getElementById("copilotProviderName");
   const timestamp = document.getElementById("copilotTimestamp");
+  const winBody = document.querySelector(".copilot-win-body");
 
-  if (btn) btn.disabled = true;
-  if (directAnswer) directAnswer.textContent = "Analyzing real-time factory telemetry & schedule constraints...";
+  // Show processing "Thinking..." state
+  if (btn) {
+    btn.disabled = true;
+    const arrowIcon = btn.querySelector(".send-icon");
+    const loadingText = btn.querySelector(".send-loading-text");
+    if (arrowIcon) arrowIcon.style.display = "none";
+    if (loadingText) loadingText.style.display = "inline";
+  }
+  if (directAnswer) directAnswer.textContent = "Thinking... Analyzing real-time factory telemetry & schedule constraints...";
 
   try {
     const res = await fetch("/copilot/query", {
@@ -1104,11 +1208,24 @@ async function submitCopilotQuery() {
         footerRow.style.display = "none";
       }
     }
+
+    // Smooth scroll down to response within popup window
+    if (winBody) {
+      setTimeout(() => {
+        winBody.scrollTo({ top: winBody.scrollHeight, behavior: "smooth" });
+      }, 50);
+    }
   } catch (err) {
     console.error("Copilot query error:", err);
     if (directAnswer) directAnswer.textContent = "Unable to complete copilot query. Please try again.";
   } finally {
-    if (btn) btn.disabled = false;
+    if (btn) {
+      btn.disabled = false;
+      const arrowIcon = btn.querySelector(".send-icon");
+      const loadingText = btn.querySelector(".send-loading-text");
+      if (arrowIcon) arrowIcon.style.display = "inline";
+      if (loadingText) loadingText.style.display = "none";
+    }
   }
 }
 
@@ -1184,8 +1301,7 @@ function renderWhatChangedPanel() {
 }
 
 function openExplanationFromDisruption() {
-  const copilotSection = document.getElementById("copilot");
-  if (copilotSection) copilotSection.scrollIntoView({ behavior: "smooth" });
+  openCopilotWindow();
   askCopilotPreset("Why did FlowForge choose this recovery plan?");
 }
 
@@ -1693,4 +1809,80 @@ function showTooltip(event, jobId, machine, start, duration, deadline) {
 function hideTooltip() {
   const tip = document.getElementById("ganttTooltip");
   if (tip) tip.classList.remove("visible");
+}
+
+// ── NUMERIC KPI TRANSITION ANIMATOR ──
+function animateKPIValue(el, targetVal, unit = "") {
+  if (!el) return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    el.innerHTML = `${targetVal}<span class="kpi-sub-unit">${unit}</span>`;
+    return;
+  }
+  const currentText = el.textContent || "";
+  const match = currentText.match(/[-+]?[0-9]*\.?[0-9]+/);
+  const currentVal = match ? parseFloat(match[0]) : null;
+
+  if (currentVal === null || isNaN(currentVal) || currentVal === targetVal) {
+    el.innerHTML = `${targetVal}<span class="kpi-sub-unit">${unit}</span>`;
+    return;
+  }
+
+  const isDecimal = String(targetVal).includes(".");
+  const duration = 380;
+  const startTime = performance.now();
+
+  function updateNumber(now) {
+    const elapsed = now - startTime;
+    const progress = Math.min(1, elapsed / duration);
+    const ease = 1 - (1 - progress) * (1 - progress);
+    const val = currentVal + (targetVal - currentVal) * ease;
+    const displayVal = isDecimal ? val.toFixed(1) : Math.round(val);
+    el.innerHTML = `${displayVal}<span class="kpi-sub-unit">${unit}</span>`;
+
+    if (progress < 1) {
+      requestAnimationFrame(updateNumber);
+    } else {
+      el.innerHTML = `${targetVal}<span class="kpi-sub-unit">${unit}</span>`;
+    }
+  }
+
+  requestAnimationFrame(updateNumber);
+}
+
+// ── SUBTLE SCROLL-REVEALS (GSAP SCROLLTRIGGER) ──
+function setupSectionScrollReveals() {
+  if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  const revealSections = document.querySelectorAll(
+    ".section-container, .screen-control-center, .screen-explorer"
+  );
+
+  revealSections.forEach((sec) => {
+    const label = sec.querySelector(".section-label, .terminal-header, .monitor-top-bar");
+    const headline = sec.querySelector(".section-headline, .monitor-brand");
+    const sub = sec.querySelector(".section-sub");
+    const content = sec.querySelector(
+      ".card-table-wrapper, .inventory-summary-grid, .maintenance-kpi-grid, .analytics-phase-card, .upload-card, .terminal-body, .monitor-screen, .scenario-controls-bar, .what-changed-panel, .decision-timeline"
+    );
+
+    const targets = [label, headline, sub, content].filter(Boolean);
+
+    if (targets.length > 0) {
+      gsap.from(targets, {
+        scrollTrigger: {
+          trigger: sec,
+          start: "top 88%",
+          toggleActions: "play none none none",
+          once: true,
+        },
+        y: 18,
+        opacity: 0,
+        duration: 0.55,
+        stagger: 0.08,
+        ease: "power2.out",
+        clearProps: "all",
+      });
+    }
+  });
 }

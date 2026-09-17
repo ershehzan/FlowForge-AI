@@ -21,7 +21,6 @@
         <a href="#inventory" class="nav-link">Inventory</a>
         <a href="#maintenance" class="nav-link">Maintenance</a>
         <a href="#analytics" class="nav-link">Analytics</a>
-        <a href="#copilot" class="nav-link">AI Copilot</a>
         <a href="#disruption" class="nav-link">Scenarios</a>
         <a href="#decision" class="nav-link">History</a>
         <a href="#import" class="nav-link">Data</a>
@@ -543,70 +542,6 @@
   </section>
 
 
-  <!-- ═══ MODULE 7: AI OPERATIONS COPILOT ═══ -->
-  <section class="section-container screen-copilot" id="copilot">
-    <div class="section-label">Engineering Operations Intelligence</div>
-    <h2 class="section-headline">AI Operations Copilot.</h2>
-    <p class="section-sub">Natural-language diagnostics and root-cause explanations grounded strictly in live factory state. The deterministic optimizer decides; Claude explains.</p>
-
-    <div class="copilot-console">
-      <!-- Preset Prompt Suggestions -->
-      <div class="copilot-presets-row">
-        <span class="copilot-preset-label">Suggested Inquiries:</span>
-        <button class="copilot-chip" onclick="askCopilotPreset('Why is production at risk?')">Why is production at risk?</button>
-        <button class="copilot-chip" onclick="askCopilotPreset('Which machine is currently the bottleneck?')">Which machine is bottleneck?</button>
-        <button class="copilot-chip" onclick="askCopilotPreset('What happens if M3 fails?')">What happens if M3 fails?</button>
-        <button class="copilot-chip" onclick="askCopilotPreset('Why was J7 moved to M5?')">Why was J7 moved to M5?</button>
-        <button class="copilot-chip" onclick="askCopilotPreset('Which jobs are likely to be late?')">Which jobs likely late?</button>
-        <button class="copilot-chip" onclick="askCopilotPreset('How much energy did recovery save?')">Energy saved by recovery?</button>
-        <button class="copilot-chip" onclick="askCopilotPreset('Summarize today factory performance.')">Summarize factory status</button>
-      </div>
-
-      <!-- Question Input Bar -->
-      <div class="copilot-input-bar">
-        <input type="text" id="copilotQueryInput" class="copilot-input" placeholder="Ask Copilot regarding schedules, bottleneck machines, order delays, or recovery rationale..." onkeydown="if(event.key==='Enter') submitCopilotQuery()">
-        <button class="btn-primary" id="btnAskCopilot" onclick="submitCopilotQuery()">Ask Copilot</button>
-      </div>
-
-      <!-- Copilot Response Panel -->
-      <div class="copilot-response-card" id="copilotResponseCard">
-        <div class="copilot-response-header">
-          <div class="copilot-model-indicator">
-            <span class="copilot-spark">⚡</span>
-            <span id="copilotProviderName">Claude 3.5 Sonnet / Operations Engine</span>
-          </div>
-          <span class="copilot-timestamp" id="copilotTimestamp">Ready for query</span>
-        </div>
-
-        <div class="copilot-direct-answer" id="copilotDirectAnswer">
-          FlowForge AI Copilot is online and synchronized with 6 workstations, 4 production orders, and the active genetic scheduling optimizer. Select a query or type an inquiry above.
-        </div>
-
-        <!-- Metric Badges Row -->
-        <div class="copilot-metrics-strip" id="copilotMetricsStrip" style="display:none;">
-          <!-- Dynamically populated metric pills -->
-        </div>
-
-        <!-- Explanation Body -->
-        <div class="copilot-explanation-body" id="copilotExplanationBody">
-          Ready to diagnose machine capacity, bottleneck propagation, and schedule reassignments.
-        </div>
-
-        <!-- Action Items & Affected Entities -->
-        <div class="copilot-footer-row" id="copilotFooterRow" style="display:none;">
-          <div class="copilot-entities-wrap">
-            <span class="footer-label">Affected Entities:</span>
-            <div class="copilot-entities-list" id="copilotEntitiesList"></div>
-          </div>
-          <div class="copilot-actions-wrap">
-            <span class="footer-label">Recommended Investigation:</span>
-            <ul class="copilot-actions-list" id="copilotActionsList"></ul>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
 
   <!-- ═══ MODULE 8: SCENARIOS & DISRUPTION SIMULATOR ═══ -->
   <section class="section-container screen-disruption" id="disruption">
@@ -850,6 +785,92 @@
     <p><strong>FLOWFORGE AI</strong> — Autonomous Manufacturing Operations &amp; Resilience Platform</p>
     <p class="footer-sub">When the factory changes, the production plan changes with it.</p>
   </footer>
+
+  <!-- ═══ FLOATING AI COPILOT ═══ -->
+  <!-- Floating Trigger Button -->
+  <button class="copilot-floating-btn" id="copilotFloatingBtn" aria-label="Open FlowForge AI" aria-expanded="false" aria-controls="copilotFloatWindow">
+    <span class="copilot-btn-icon">✦</span>
+    <span class="copilot-btn-label">FLOWFORGE AI</span>
+  </button>
+
+  <!-- Floating Assistant Window -->
+  <aside class="copilot-float-window" id="copilotFloatWindow" aria-label="FlowForge AI Operations Copilot" role="dialog" aria-modal="false" aria-hidden="true">
+    <div class="copilot-win-header">
+      <div class="copilot-win-header-left">
+        <div class="copilot-win-title-row">
+          <span class="copilot-win-spark">✦</span>
+          <span class="copilot-win-brand">FLOWFORGE AI</span>
+        </div>
+        <div class="copilot-win-sub-row">
+          <span class="copilot-win-subtitle">Operations Copilot</span>
+          <span class="copilot-win-status"><span class="status-dot-green"></span>Connected</span>
+        </div>
+      </div>
+      <button type="button" class="copilot-win-close" id="copilotWinClose" aria-label="Close FlowForge AI">×</button>
+    </div>
+
+    <div class="copilot-win-body">
+      <!-- Suggested Inquiries -->
+      <div class="copilot-presets-row">
+        <span class="copilot-preset-label">Suggested Inquiries:</span>
+        <div class="copilot-preset-chips">
+          <button type="button" class="copilot-chip" onclick="askCopilotPreset('Why is production at risk?')">Why is production at risk?</button>
+          <button type="button" class="copilot-chip" onclick="askCopilotPreset('Which machine is currently the bottleneck?')">Which machine is bottleneck?</button>
+          <button type="button" class="copilot-chip" onclick="askCopilotPreset('What happens if M3 fails?')">What happens if M3 fails?</button>
+          <button type="button" class="copilot-chip" onclick="askCopilotPreset('Why was J7 moved to M5?')">Why was J7 moved to M5?</button>
+          <button type="button" class="copilot-chip" onclick="askCopilotPreset('Which jobs are likely to be late?')">Which jobs likely late?</button>
+          <button type="button" class="copilot-chip" onclick="askCopilotPreset('How much energy did recovery save?')">Energy saved by recovery?</button>
+          <button type="button" class="copilot-chip" onclick="askCopilotPreset('Summarize today factory performance.')">Summarize factory status</button>
+        </div>
+      </div>
+
+      <!-- Response Card -->
+      <div class="copilot-response-card" id="copilotResponseCard">
+        <div class="copilot-response-header">
+          <div class="copilot-model-indicator">
+            <span class="copilot-spark">⚡</span>
+            <span id="copilotProviderName">Claude 3.5 Sonnet / Operations Engine</span>
+          </div>
+          <span class="copilot-timestamp" id="copilotTimestamp">Ready for query</span>
+        </div>
+
+        <div class="copilot-direct-answer" id="copilotDirectAnswer">
+          FlowForge AI Copilot is online and synchronized with 6 workstations, 4 production orders, and the active genetic scheduling optimizer. Select a query above or type an inquiry below.
+        </div>
+
+        <!-- Metric Badges Row -->
+        <div class="copilot-metrics-strip" id="copilotMetricsStrip" style="display:none;"></div>
+
+        <!-- Explanation Body -->
+        <div class="copilot-explanation-body" id="copilotExplanationBody">
+          Ready to diagnose machine capacity, bottleneck propagation, and schedule reassignments.
+        </div>
+
+        <!-- Action Items & Affected Entities -->
+        <div class="copilot-footer-row" id="copilotFooterRow" style="display:none;">
+          <div class="copilot-entities-wrap">
+            <span class="footer-label">Affected Entities:</span>
+            <div class="copilot-entities-list" id="copilotEntitiesList"></div>
+          </div>
+          <div class="copilot-actions-wrap">
+            <span class="footer-label">Recommended Investigation:</span>
+            <ul class="copilot-actions-list" id="copilotActionsList"></ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input Bar at Bottom -->
+    <div class="copilot-win-footer">
+      <div class="copilot-input-bar">
+        <textarea id="copilotQueryInput" class="copilot-input" placeholder="Ask about your factory..." rows="1" aria-label="Ask about your factory"></textarea>
+        <button type="button" class="copilot-send-btn" id="btnAskCopilot" aria-label="Send inquiry" onclick="submitCopilotQuery()">
+          <span class="send-icon">↑</span>
+          <span class="send-loading-text" style="display:none;">Thinking...</span>
+        </button>
+      </div>
+    </div>
+  </aside>
 
   <!-- Hover Tooltip -->
   <div id="ganttTooltip" class="gantt-tooltip"></div>
