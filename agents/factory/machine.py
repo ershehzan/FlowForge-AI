@@ -56,17 +56,38 @@ def get_machine_energy_map(machines):
     }
 
 
+def _resolve_machine_id(machines, machine_id):
+    if not machine_id:
+        return None
+    if machine_id in machines:
+        return machine_id
+    clean = str(machine_id).strip().upper()
+    if clean in machines:
+        return clean
+    if clean.startswith("M"):
+        num_part = clean[1:]
+        if num_part.isdigit():
+            v1 = f"M{int(num_part)}"
+            v2 = f"M{int(num_part):02d}"
+            if v1 in machines:
+                return v1
+            if v2 in machines:
+                return v2
+    return None
+
+
 def fail_machine(machines, machine_id):
     """
     Set a machine to failed status.
     Returns True if the machine was available and is now failed.
     Returns False if the machine was already failed or doesn't exist.
     """
-    if machine_id not in machines:
+    real_id = _resolve_machine_id(machines, machine_id)
+    if not real_id:
         return False
-    if machines[machine_id]["status"] == MACHINE_STATUS_FAILED:
+    if machines[real_id]["status"] == MACHINE_STATUS_FAILED:
         return False
-    machines[machine_id]["status"] = MACHINE_STATUS_FAILED
+    machines[real_id]["status"] = MACHINE_STATUS_FAILED
     return True
 
 
@@ -76,9 +97,10 @@ def recover_machine(machines, machine_id):
     Returns True if the machine was failed and is now available.
     Returns False if the machine was not failed or doesn't exist.
     """
-    if machine_id not in machines:
+    real_id = _resolve_machine_id(machines, machine_id)
+    if not real_id:
         return False
-    if machines[machine_id]["status"] != MACHINE_STATUS_FAILED:
+    if machines[real_id]["status"] != MACHINE_STATUS_FAILED:
         return False
-    machines[machine_id]["status"] = MACHINE_STATUS_AVAILABLE
+    machines[real_id]["status"] = MACHINE_STATUS_AVAILABLE
     return True

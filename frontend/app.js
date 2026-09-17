@@ -67,6 +67,16 @@ const MACHINE_SPECS = {
   M4: { name: "CONVEYOR-A1", type: "Automated Line", img: "/static/assets/machines/m4.jpg", defaultUtil: 75, power: 8.5 },
   M5: { name: "LATHE-P3", type: "Metal Turning", img: "/static/assets/machines/m5.jpg", defaultUtil: 45, power: 18.0 },
   M6: { name: "ASSEMBLY-F4", type: "Precision Workstation", img: "/static/assets/machines/m6.jpg", defaultUtil: 91, power: 12.0 },
+  M01: { name: "CNC Milling Center 01", type: "CNC Mill", img: "/static/assets/machines/m1.jpg", defaultUtil: 82, power: 8.0 },
+  M02: { name: "CNC Milling Center 02", type: "CNC Mill", img: "/static/assets/machines/m2.jpg", defaultUtil: 78, power: 8.0 },
+  M03: { name: "Precision CNC Lathe 03", type: "CNC Lathe", img: "/static/assets/machines/m3.jpg", defaultUtil: 88, power: 9.5 },
+  M04: { name: "Heavy Turning Lathe 04", type: "CNC Lathe", img: "/static/assets/machines/m4.jpg", defaultUtil: 85, power: 10.0 },
+  M05: { name: "Hydraulic Stamping Press 05", type: "Press", img: "/static/assets/machines/m5.jpg", defaultUtil: 74, power: 22.0 },
+  M06: { name: "High-Speed Mechanical Press 06", type: "Press", img: "/static/assets/machines/m6.jpg", defaultUtil: 91, power: 24.0 },
+  M07: { name: "Robotic MIG/TIG Welder 07", type: "Robotic Welder", img: "/static/assets/machines/m1.jpg", defaultUtil: 68, power: 14.5 },
+  M08: { name: "Fiber Laser Cutting Cell 08", type: "Laser Cutter", img: "/static/assets/machines/m2.jpg", defaultUtil: 86, power: 28.0 },
+  M09: { name: "Automated Precision Assembly 09", type: "Assembly Cell", img: "/static/assets/machines/m3.jpg", defaultUtil: 89, power: 5.5 },
+  M10: { name: "Coordinate Measuring & QA 10", type: "CMM QA Station", img: "/static/assets/machines/m4.jpg", defaultUtil: 62, power: 3.5 },
 };
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -326,6 +336,14 @@ async function initFlowForgeEngine() {
 
     await refreshAllOperationalData();
     updateUI();
+
+    const metaText = document.getElementById("uploadMetaText");
+    if (metaText && state.factory) {
+      const jobCount = state.factory.jobs ? state.factory.jobs.length : 0;
+      const machCount = state.factory.machines ? Object.keys(state.factory.machines).length : 0;
+      const orderCount = state.factory.production_orders ? state.factory.production_orders.length : (state.erp.orders ? state.erp.orders.length : 0);
+      metaText.innerHTML = `<strong>${state.factory.data_source || 'industrial_factory.xlsx'}</strong>, ${jobCount} Jobs, ${machCount} Machines, ${orderCount} Orders Active`;
+    }
   } catch (err) {
     console.error("Initialization error:", err);
   }
@@ -678,11 +696,29 @@ function renderGanttChart() {
   if (!grid) return;
 
   const schedule = state.currentSchedule || [];
-  let machines = state.factory && state.factory.machines
-    ? Object.keys(state.factory.machines)
+  let allFactoryMachines = state.factory && state.factory.machines
+    ? Object.keys(state.factory.machines).sort()
     : ["M1", "M2", "M3", "M4", "M5", "M6"];
-  machines.sort();
 
+  const machSelect = document.getElementById("ganttMachineFilter");
+  if (machSelect) {
+    const existingOptions = Array.from(machSelect.options).map(o => o.value);
+    const hasAll = allFactoryMachines.every(k => existingOptions.includes(k)) && (existingOptions.length === allFactoryMachines.length + 1);
+    if (!hasAll) {
+      const currentVal = machSelect.value;
+      let optHtml = `<option value="ALL">All Stations (${allFactoryMachines[0]}–${allFactoryMachines[allFactoryMachines.length - 1]})</option>`;
+      allFactoryMachines.forEach(k => {
+        const spec = MACHINE_SPECS[k] || { name: k };
+        optHtml += `<option value="${k}">${k} (${spec.name})</option>`;
+      });
+      machSelect.innerHTML = optHtml;
+      if (allFactoryMachines.includes(currentVal)) {
+        machSelect.value = currentVal;
+      }
+    }
+  }
+
+  let machines = [...allFactoryMachines];
   if (state.ganttFilters.machine !== "ALL") {
     machines = machines.filter((m) => m === state.ganttFilters.machine);
   }
@@ -1866,8 +1902,33 @@ async function runFlowForgeOptimization() {
   if (btn) btn.disabled = false;
 }
 
-function loadSampleTemplate() {
-  window.location.href = "/examples/factory_data_template.xlsx";
+async function loadSampleTemplate() {
+  const btn = document.getElementById("btnRunFlowForge");
+  if (btn) btn.disabled = true;
+  const metaText = document.getElementById("uploadMetaText");
+  if (metaText) metaText.innerHTML = `<em>Loading 16-sheet Industrial Factory Dataset...</em>`;
+  try {
+    const res = await fetch("/factory/reset", { method: "POST" });
+    if (!res.ok) throw new Error("Failed to load sample dataset");
+    const data = await res.json();
+    state.baselineSchedule = data.baseline_schedule || [];
+    state.currentSchedule = state.baselineSchedule;
+    state.baselineMetrics = data.metrics;
+    state.baselineResilience = data.resilience;
+    state.isDisrupted = false;
+    await refreshAllOperationalData();
+    updateUI();
+    if (metaText) {
+      metaText.innerHTML = `<strong>industrial_factory.xlsx</strong>, 36 Jobs, 10 Machines, 12 Orders, 16 Sheets Loaded`;
+    }
+    const ccSection = document.getElementById("control-center");
+    if (ccSection) ccSection.scrollIntoView({ behavior: "smooth" });
+  } catch (e) {
+    console.error("Failed to load sample template:", e);
+    if (metaText) metaText.innerHTML = `<span style="color:#ef4444;">Failed to load industrial dataset</span>`;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 async function loadSampleJson() {

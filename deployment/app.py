@@ -73,9 +73,13 @@ FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__fi
 EXAMPLES_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "examples")
 ANIMATION_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Animation-jpg")
 
+DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+
 app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 if os.path.exists(EXAMPLES_DIR):
     app.mount("/examples", StaticFiles(directory=EXAMPLES_DIR), name="examples")
+if os.path.exists(DATA_DIR):
+    app.mount("/data", StaticFiles(directory=DATA_DIR), name="data")
 if os.path.exists(ANIMATION_DIR):
     app.mount("/frames", StaticFiles(directory=ANIMATION_DIR), name="frames")
 
@@ -89,7 +93,6 @@ async def get_frames_info():
     if not files:
         return {"count": 0, "frames": []}
 
-    import re
     digits = 3
     prefix = "ezgif-frame-"
     ext = ".jpg"
@@ -121,8 +124,35 @@ async def root():
     )
 
 
-# Global factory state (initialized with default 6 machines, 12 jobs)
-factory = FactoryState()
+def load_initial_factory() -> FactoryState:
+    """Initialize factory state with industrial dataset if available, otherwise defaults."""
+    fs = FactoryState()
+    industrial_path = os.path.join(ROOT_DIR, "data", "industrial_factory.xlsx")
+    if os.path.exists(industrial_path):
+        try:
+            parser = ExcelParser()
+            with open(industrial_path, "rb") as f:
+                parsed = parser.parse(f.read(), filename="industrial_factory.xlsx")
+            if parsed.get("success"):
+                fs.load_normalized_data(parsed, data_source="industrial_factory.xlsx")
+                available = fs.get_available_machine_ids()
+                scheduler = Scheduler(available)
+                energy_map = fs.get_machine_energy_map()
+                baseline = scheduler.ga_schedule(
+                    fs.get_active_jobs(),
+                    machine_energy=energy_map,
+                )
+                fs.set_baseline_schedule(baseline)
+                fs.erp_engine.synchronize()
+                logger.info("Auto-loaded industrial factory dataset (%d machines, %d jobs)", len(fs.machines), len(fs.jobs))
+                return fs
+        except Exception as e:
+            logger.warning("Failed to auto-load industrial_factory.xlsx: %s", e)
+    return fs
+
+
+# Global factory state (defaults to rich industrial factory dataset)
+factory = load_initial_factory()
 
 # Session storage for legacy upload_jobs flow
 SESSIONS = {}
@@ -284,9 +314,43 @@ async def initialize_factory():
     Initialize factory with default config and generate baseline schedule.
     This sets up the factory for demo scenarios.
     """
+    industrial_path = os.path.join(ROOT_DIR, "data", "industrial_factory.xlsx")
+    if os.path.exists(industrial_path):
+        try:
+            parser = ExcelParser()
+            with open(industrial_path, "rb") as f:
+                parsed = parser.parse(f.read(), filename="industrial_factory.xlsx")
+            if parsed.get("success"):
+                factory.reset()
+                factory.load_normalized_data(parsed, data_source="industrial_factory.xlsx")
+                available = factory.get_available_machine_ids()
+                scheduler = Scheduler(available)
+                energy_map = factory.get_machine_energy_map()
+                baseline = scheduler.ga_schedule(
+                    factory.get_active_jobs(),
+                    machine_energy=energy_map,
+                )
+                factory.set_baseline_schedule(baseline)
+                factory.erp_engine.synchronize()
+                metrics = calculate_all_metrics(baseline, available, energy_map)
+                resilience = calculate_resilience_score(
+                    baseline, available, energy_map,
+                    total_machines=len(factory.machines),
+                    available_machines=len(available),
+                )
+                return {
+                    "status": "initialized",
+                    "factory_status": factory.factory_status,
+                    "baseline_schedule": baseline,
+                    "metrics": metrics,
+                    "resilience": resilience,
+                }
+        except Exception as e:
+            logger.warning("Failed to initialize with industrial_factory.xlsx: %s", e)
+
     factory.reset()
 
-    # Generate baseline schedule using GA with all 6 machines
+    # Generate baseline schedule using GA with available machines
     available = factory.get_available_machine_ids()
     scheduler = Scheduler(available)
     energy_map = factory.get_machine_energy_map()
@@ -312,6 +376,20 @@ async def initialize_factory():
         "metrics": metrics,
         "resilience": resilience,
     }
+
+
+@app.post("/factory/reset")
+async def reset_factory():
+    """Reset factory to baseline state (reloading industrial dataset)."""
+    res = await initialize_factory()
+    res["status"] = "reset"
+    return res
+
+
+@app.post("/factory/load_sample")
+async def load_sample_factory():
+    """Load the full 16-sheet Industrial Factory sample dataset."""
+    return await initialize_factory()
 
 
 @app.post("/factory/upload")
@@ -456,6 +534,12 @@ async def apply_disruption(request: DisruptionRequest):
         if not request.job_id:
             return JSONResponse(status_code=400, content={"error": "job_id is required for job_cancellation"})
         disruption = disruption_types.job_cancellation(request.job_id)
+
+    elif dtype == "deadline_change":
+        if not request.job_id or (request.new_deadline is None and request.deadline is None):
+            return JSONResponse(status_code=400, content={"error": "job_id and new_deadline/deadline are required for deadline_change"})
+        dl = request.new_deadline if request.new_deadline is not None else request.deadline
+        disruption = disruption_types.deadline_change(request.job_id, dl)
 
     elif dtype in ("planned_downtime", "maintenance", "machine_downtime"):
         target_m = request.machine_id or "M04"
