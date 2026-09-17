@@ -832,13 +832,17 @@ function renderFactoryExplorer() {
     const assignedJobs = (state.currentSchedule || []).filter((j) => j.machine === id);
     const currentJob = assignedJobs.length > 0 ? assignedJobs[0].job_id : "IDLE";
 
+    const mName = (liveMachine && (liveMachine.name || liveMachine.machine_name)) || spec.name;
+    const health = (liveMachine && liveMachine.health_score !== undefined) ? liveMachine.health_score : (isStopped ? 25 : 92);
+    const energyRate = (liveMachine && (liveMachine.energy_kwh_per_hour || liveMachine.power_kwh)) || spec.power || 12.0;
+
     html += `
       <div class="machine-card ${isStopped ? "stopped" : ""}" id="card_${id}" onclick="openMachineModal('${id}')" title="Click to open workstation telemetry">
         <div class="machine-card-header">
           <div>
             <div class="machine-card-id">${id} · ${currentJob}</div>
-            <div class="machine-card-name">${spec.name}</div>
-            <div class="machine-card-status ${statusClass}">${statusText}</div>
+            <div class="machine-card-name">${escapeHtml(mName)}</div>
+            <div class="machine-card-status ${statusClass}">${statusText} · Health: ${health}% · ${energyRate} kWh/h</div>
           </div>
           <div class="machine-card-util">${util}%</div>
         </div>
@@ -1208,20 +1212,33 @@ function renderHistoryAuditTrail() {
 
   tbody.innerHTML = history
     .map((item, idx) => {
-      const machines = item.affected_machines.join(", ") || "—";
-      const jobsCount = item.affected_jobs.length;
-      const msDelta = `${item.baseline_makespan}m → ${item.recovery_makespan}m`;
-      const resDelta = `${item.baseline_resilience} → ${item.recovery_resilience}`;
+      const affMachines = Array.isArray(item.affected_machines)
+        ? (item.affected_machines.join(", ") || "ALL")
+        : (item.target || "ALL");
+      const jobsCount = Array.isArray(item.affected_jobs)
+        ? item.affected_jobs.length
+        : (item.affected_job_count || 0);
+      const desc = item.description || item.impact_summary || item.scenario_name || "Disruption Event";
+      const ts = typeof item.timestamp === "number"
+        ? new Date(item.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : (item.timestamp || "—");
+      const msDelta = item.baseline_makespan !== undefined
+        ? `${item.baseline_makespan}m → ${item.recovery_makespan}m`
+        : "—";
+      const resDelta = item.baseline_resilience !== undefined
+        ? `${item.baseline_resilience} → ${item.recovery_resilience}`
+        : "—";
+      const lateStr = item.recovery_late !== undefined ? `${item.recovery_late} late` : "0 late";
 
       return `
         <tr style="cursor:pointer;" onclick="selectHistoryReport(${idx})" title="Click to view Decision Report">
-          <td class="code-cell">${escapeHtml(item.timestamp)}</td>
-          <td><strong>${escapeHtml(item.description)}</strong></td>
-          <td><span class="code-cell">${escapeHtml(machines)}</span></td>
+          <td class="code-cell">${escapeHtml(ts)}</td>
+          <td><strong>${escapeHtml(desc)}</strong></td>
+          <td><span class="code-cell">${escapeHtml(affMachines)}</span></td>
           <td>${jobsCount} jobs</td>
           <td>${msDelta}</td>
           <td><span class="status-pill running">${resDelta}</span></td>
-          <td>${item.recovery_late} late</td>
+          <td>${lateStr}</td>
           <td><button class="btn-secondary" style="padding:3px 8px; font-size:0.75rem;" onclick="selectHistoryReport(${idx})">Inspect ➔</button></td>
         </tr>
       `;
@@ -1359,6 +1376,89 @@ function toggleTerminalPower() {
 // ═════════════════════════════════════════════════════════════════════════
 // 5. INTERACTIVE SCENARIOS (DISRUPTIONS & RECOVERIES)
 // ═════════════════════════════════════════════════════════════════════════
+
+async function runIndustrialScenario(scenarioId) {
+  if (!scenarioId) return;
+  try {
+    const res = await fetch("/scenarios/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scenario_id: parseInt(scenarioId, 10) }),
+    });
+
+    if (!res.ok) throw new Error(`Scenario run failed: ${res.status}`);
+    const data = await res.json();
+    const result = data.result || {};
+
+    state.isDisrupted = parseInt(scenarioId, 10) !== 1;
+    state.currentSchedule = (data.schedules && data.schedules.recovery) || state.currentSchedule;
+    state.recoverySchedule = state.currentSchedule;
+    state.recoveryMetrics = result.result || null;
+
+    // Update What Changed Panel
+    const wcPanel = document.getElementById("whatChangedPanel");
+    if (wcPanel) {
+      wcPanel.style.display = "block";
+      const wcBadge = document.getElementById("wcBadge");
+      if (wcBadge) {
+        wcBadge.textContent = result.event && result.event.type ? result.event.type.toUpperCase() : `SCENARIO ${scenarioId}`;
+        wcBadge.className = `wc-badge ${parseInt(scenarioId, 10) === 1 ? "success" : "danger"}`;
+      }
+      const wcTitle = document.getElementById("wcTitle");
+      if (wcTitle) {
+        wcTitle.textContent = result.scenario_name ? `${result.scenario_name} — ${result.result && result.result.status ? result.result.status : 'Active'}` : "Scenario Evaluated";
+      }
+      const wcTime = document.getElementById("wcTimestamp");
+      if (wcTime) {
+        wcTime.textContent = `${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} — Autonomous FlowForge Replanning`;
+      }
+      const wcImpact = document.getElementById("wcImpactList");
+      if (wcImpact && result.impact) {
+        wcImpact.innerHTML = `
+          <li>${result.impact.description || "Operational parameters shifted."}</li>
+          <li>Baseline makespan: ${result.baseline ? result.baseline.makespan : 0}m ➔ Recovery: ${result.result ? result.result.makespan : 0}m</li>
+          <li>Resilience Index: ${result.baseline ? result.baseline.resilience_score : 85} ➔ ${result.result ? result.result.resilience_score : 80}/100</li>
+        `;
+      }
+      const wcResp = document.getElementById("wcResponseList");
+      if (wcResp && result.flowforge_response) {
+        const reassigns = result.flowforge_response.reassignments || [];
+        wcResp.innerHTML = reassigns.length > 0
+          ? reassigns.map(r => `<span class="reassign-pill">${r}</span>`).join("")
+          : `<span class="reassign-pill">${result.flowforge_response.summary || "Autonomous dispatch optimization complete."}</span>`;
+      }
+      const wcMakespanDelta = document.getElementById("wcMakespanDelta");
+      if (wcMakespanDelta && result.result && result.result.delta) {
+        const d = result.result.delta.makespan;
+        wcMakespanDelta.textContent = `${d > 0 ? '+' : ''}${d} min`;
+        wcMakespanDelta.className = d <= 0 ? "val positive" : "val";
+      }
+      const wcLateDelta = document.getElementById("wcLateDelta");
+      if (wcLateDelta && result.result) {
+        wcLateDelta.textContent = `${result.result.late_jobs} late`;
+        wcLateDelta.className = result.result.late_jobs === 0 ? "val positive" : "val negative";
+      }
+      const wcEnergyDelta = document.getElementById("wcEnergyDelta");
+      if (wcEnergyDelta && result.result && result.result.delta) {
+        const ed = result.result.delta.energy_kwh;
+        wcEnergyDelta.textContent = `${ed > 0 ? '+' : ''}${ed} kWh`;
+      }
+      const wcResilienceDelta = document.getElementById("wcResilienceDelta");
+      if (wcResilienceDelta && result.baseline && result.result) {
+        wcResilienceDelta.textContent = `${result.baseline.resilience_score} ➔ ${result.result.resilience_score}`;
+        wcResilienceDelta.className = result.result.resilience_score >= result.baseline.resilience_score ? "val positive" : "val";
+      }
+    }
+
+    await refreshAllOperationalData();
+    updateUI();
+
+    const target = document.getElementById("disruption");
+    if (target) target.scrollIntoView({ behavior: "smooth" });
+  } catch (err) {
+    console.error("Industrial scenario error:", err);
+  }
+}
 
 async function triggerMachineFailure(machineId = "M3") {
   try {

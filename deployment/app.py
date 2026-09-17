@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, field_validator
-from typing import Optional
+from typing import Optional, List, Dict, Any
 
 logger = logging.getLogger("flowforge")
 
@@ -135,17 +135,26 @@ SESSIONS = {}
 class DisruptionRequest(BaseModel):
     type: str  # machine_failure, machine_recovery, urgent_job, etc.
     machine_id: Optional[str] = None
+    machine_ids: Optional[List[str]] = None
     job_id: Optional[str] = None
     duration: Optional[int] = None
     deadline: Optional[int] = None
     new_deadline: Optional[int] = None
     priority: Optional[int] = 5
+    material_id: Optional[str] = None
+    defect_rate: Optional[float] = None
+    threshold_kw: Optional[float] = None
+    reason: Optional[str] = None
 
     @field_validator("type")
     @classmethod
     def validate_type(cls, v):
-        allowed = {"machine_failure", "machine_recovery", "urgent_job",
-                   "job_cancellation", "deadline_change", "machine_downtime"}
+        allowed = {
+            "machine_failure", "machine_recovery", "urgent_job",
+            "job_cancellation", "deadline_change", "machine_downtime",
+            "planned_downtime", "maintenance", "material_shortage",
+            "quality_issue", "multiple_failure", "energy_constraint",
+        }
         if v not in allowed:
             raise ValueError(f"Unknown disruption type '{v}'. Allowed: {sorted(allowed)}")
         return v
@@ -363,16 +372,13 @@ async def upload_factory_excel(file: UploadFile = File(...)):
             }
         )
 
-    # Transactional update of FactoryState
-    factory.machines = parsed["machines"]
-    factory.jobs = parsed["jobs"]
-    factory.data_source = filename
+    # Transactional update of FactoryState with full normalization
+    factory.load_normalized_data(parsed, data_source=filename)
     factory.baseline_schedule = None
     factory.disrupted_schedule = None
     factory.recovery_schedule = None
     factory.schedule_state = "BASELINE"
     factory.factory_status = "OPERATIONAL"
-    factory.active_disruptions = parsed.get("disruptions", [])
 
     # Run Autonomous Scheduler on imported factory state
     available = factory.get_available_machine_ids()
@@ -451,10 +457,28 @@ async def apply_disruption(request: DisruptionRequest):
             return JSONResponse(status_code=400, content={"error": "job_id is required for job_cancellation"})
         disruption = disruption_types.job_cancellation(request.job_id)
 
-    elif dtype == "deadline_change":
-        if not request.job_id or not request.new_deadline:
-            return JSONResponse(status_code=400, content={"error": "job_id and new_deadline are required for deadline_change"})
-        disruption = disruption_types.deadline_change(request.job_id, request.new_deadline)
+    elif dtype in ("planned_downtime", "maintenance", "machine_downtime"):
+        target_m = request.machine_id or "M04"
+        duration = request.duration or 90
+        reason = request.reason or "Preventive service"
+        disruption = disruption_types.planned_downtime(target_m, duration, reason)
+
+    elif dtype == "multiple_failure":
+        m_list = request.machine_ids or ([m.strip() for m in request.machine_id.split(",")] if request.machine_id else ["M03", "M05"])
+        disruption = disruption_types.multiple_failure(m_list)
+
+    elif dtype == "material_shortage":
+        mat_id = request.material_id or "RM-003"
+        disruption = disruption_types.material_shortage(mat_id)
+
+    elif dtype == "quality_issue":
+        target_m = request.machine_id or "M02"
+        rate = request.defect_rate or 0.15
+        disruption = disruption_types.quality_issue(target_m, defect_rate=rate)
+
+    elif dtype == "energy_constraint":
+        thresh = request.threshold_kw or 65.0
+        disruption = disruption_types.energy_constraint(threshold_kw=thresh)
 
     else:
         # Should not reach here since Pydantic validator catches unknown types
@@ -550,6 +574,40 @@ async def apply_disruption(request: DisruptionRequest):
         "factory_status": factory.factory_status,
         "erp": factory.erp_engine.to_dict(),
         "history": factory.history_records,
+    }
+
+
+class ScenarioRunRequest(BaseModel):
+    scenario_id: int
+
+
+@app.get("/scenarios")
+async def get_scenarios():
+    """Return catalog of the 10 predefined industrial scenarios."""
+    from agents.disruption.scenarios import INDUSTRIAL_SCENARIOS_META
+    return {"scenarios": INDUSTRIAL_SCENARIOS_META}
+
+
+@app.post("/scenarios/run")
+async def run_scenario_endpoint(req: ScenarioRunRequest):
+    """
+    Execute one of the 10 industrial scenarios against the common factory state.
+    Returns structured baseline, event, impact, response, and recovery metrics.
+    """
+    engine = DisruptionEngine(factory)
+    result = engine.run_scenario(req.scenario_id)
+    factory.erp_engine.synchronize()
+    return {
+        "success": True,
+        "scenario_id": req.scenario_id,
+        "scenario_name": result.get("scenario_name", f"Scenario {req.scenario_id}"),
+        "result": result,
+        "factory_state": factory.to_dict(),
+        "schedules": {
+            "baseline": factory.baseline_schedule,
+            "disrupted": factory.disrupted_schedule,
+            "recovery": factory.recovery_schedule,
+        },
     }
 
 
@@ -693,15 +751,29 @@ async def copilot_query(request: CopilotQueryRequest):
     ) if schedule else {}
 
     context = {
+        "factory": {
+            "status": factory.factory_status,
+            "schedule_state": factory.schedule_state,
+            "data_source": factory.data_source,
+            "total_machines": len(factory.machines),
+            "available_machines": len(available),
+        },
         "factory_status": factory.factory_status,
         "machines": factory.machines,
+        "orders": [o.to_dict() if hasattr(o, "to_dict") else o for o in factory.erp_engine.orders],
+        "jobs": factory.jobs,
+        "operations": factory.operations,
+        "inventory": [i.to_dict() if hasattr(i, "to_dict") else i for i in factory.erp_engine.inventory],
+        "maintenance": [m.to_dict() if hasattr(m, "to_dict") else m for m in factory.erp_engine.maintenance],
+        "downtime": factory.downtime_records,
+        "energy": factory.energy_observations,
+        "quality": factory.quality_observations,
+        "production_lines": factory.production_lines,
+        "disruptions": factory.active_disruptions,
         "schedule": schedule,
         "metrics": metrics,
         "resilience": resilience,
-        "orders": [o.to_dict() for o in factory.erp_engine.orders],
-        "inventory": [i.to_dict() for i in factory.erp_engine.inventory],
         "capacity": factory.erp_engine.get_capacity_matrix(),
-        "disruptions": factory.active_disruptions,
         "history_count": len(factory.history_records),
     }
 

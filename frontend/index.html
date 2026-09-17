@@ -616,6 +616,19 @@
 
     <!-- Interactive Simulator Controls -->
     <div class="scenario-controls-bar">
+      <select id="industrialScenarioSelect" class="btn-sim" style="padding: 10px 18px; border-radius: 9999px; font-weight: 600; cursor: pointer; background: #ffffff; border: 1px solid var(--border-light);" onchange="runIndustrialScenario(this.value)">
+        <option value="" disabled selected>⚙️ Select Industrial Scenario (1-10)...</option>
+        <option value="1">Scenario 1: Normal Production (Nominal)</option>
+        <option value="2">Scenario 2: Single Machine Failure (M03)</option>
+        <option value="3">Scenario 3: Multiple Machine Failure (M03+M05)</option>
+        <option value="4">Scenario 4: Urgent Customer Order (J99)</option>
+        <option value="5">Scenario 5: Deadline Change (Acceleration)</option>
+        <option value="6">Scenario 6: Job Cancellation (Capacity Release)</option>
+        <option value="7">Scenario 7: Planned Maintenance (M04 Window)</option>
+        <option value="8">Scenario 8: Material Shortage (RM-003 Delay)</option>
+        <option value="9">Scenario 9: Quality Issue (M02 Spindle Drift)</option>
+        <option value="10">Scenario 10: Peak Energy Constraint (&lt; 65 kW)</option>
+      </select>
       <button class="btn-sim danger" id="btnFailM3" onclick="triggerMachineFailure('M3')">🔴 Fail M3 (Press-G2)</button>
       <button class="btn-sim" id="btnUrgent" onclick="triggerUrgentJob()">⚡ Urgent Order (J99)</button>
       <button class="btn-sim" id="btnDeadline" onclick="triggerDeadlineShift()">⏰ Deadline Shift</button>

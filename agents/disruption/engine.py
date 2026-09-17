@@ -19,8 +19,11 @@ from agents.factory.state import (
 from agents.disruption.types import (
     MACHINE_FAILURE, MACHINE_RECOVERY, URGENT_JOB,
     JOB_CANCELLATION, DEADLINE_CHANGE, MACHINE_DOWNTIME,
+    PLANNED_DOWNTIME, MAINTENANCE, MATERIAL_SHORTAGE,
+    QUALITY_ISSUE, MULTIPLE_FAILURE, ENERGY_CONSTRAINT,
 )
 from agents.scheduler import Scheduler
+
 
 
 class DisruptionEngine:
@@ -100,9 +103,28 @@ class DisruptionEngine:
             affected_jobs = result["affected_jobs"]
             impact = result["impact"]
 
-        elif dtype == MACHINE_DOWNTIME:
-            # Treat as machine failure for now
-            result = self._apply_machine_failure(disruption)
+        elif dtype in (MACHINE_DOWNTIME, PLANNED_DOWNTIME, MAINTENANCE):
+            result = self._apply_planned_maintenance(disruption)
+            affected_jobs = result["affected_jobs"]
+            impact = result["impact"]
+
+        elif dtype == MULTIPLE_FAILURE:
+            result = self._apply_multiple_failure(disruption)
+            affected_jobs = result["affected_jobs"]
+            impact = result["impact"]
+
+        elif dtype == MATERIAL_SHORTAGE:
+            result = self._apply_material_shortage(disruption)
+            affected_jobs = result["affected_jobs"]
+            impact = result["impact"]
+
+        elif dtype == QUALITY_ISSUE:
+            result = self._apply_quality_issue(disruption)
+            affected_jobs = result["affected_jobs"]
+            impact = result["impact"]
+
+        elif dtype == ENERGY_CONSTRAINT:
+            result = self._apply_energy_constraint(disruption)
             affected_jobs = result["affected_jobs"]
             impact = result["impact"]
 
@@ -300,3 +322,163 @@ class DisruptionEngine:
         )
 
         return recovery
+
+    def _apply_planned_maintenance(self, disruption):
+        """Handle planned downtime / maintenance window."""
+        machine_id = disruption.get("machine_id", "M04")
+        duration = disruption.get("duration_minutes", 90)
+        reason = disruption.get("reason", "Preventive service")
+        fs = self.factory_state
+
+        from agents.disruption.scenarios import resolve_machine_id
+        m_resolved = resolve_machine_id(machine_id, fs.machines)
+
+        fail_machine(fs.machines, m_resolved)
+        affected = []
+        if fs.baseline_schedule:
+            affected = [
+                a["job_id"] for a in fs.baseline_schedule
+                if a.get("machine") == m_resolved
+            ]
+
+        # Record in downtime records
+        fs.downtime_records.append({
+            "downtime_id": f"DWN-MNT-{len(fs.downtime_records)+1:02d}",
+            "machine_id": m_resolved,
+            "start_time": "10:00",
+            "end_time": "11:30",
+            "duration_minutes": duration,
+            "downtime_type": "MAINTENANCE",
+            "reason": reason,
+            "planned": True,
+            "impact_level": "MODERATE",
+        })
+
+        return {
+            "affected_jobs": affected,
+            "impact": {
+                "maintenance_machine": m_resolved,
+                "duration_minutes": duration,
+                "affected_job_count": len(affected),
+                "reason": reason,
+                "description": f"Station {m_resolved} scheduled for {duration}min planned maintenance ({reason}). Autonomous scheduler routing work around outage.",
+            },
+        }
+
+    def _apply_multiple_failure(self, disruption):
+        """Handle cascading multiple machine outages."""
+        m_ids = disruption.get("machine_ids", [])
+        if isinstance(m_ids, str):
+            m_ids = [m.strip() for m in m_ids.split(",")]
+        fs = self.factory_state
+
+        from agents.disruption.scenarios import resolve_machine_id
+        resolved_ids = [resolve_machine_id(m, fs.machines) for m in m_ids]
+
+        for m_id in resolved_ids:
+            fail_machine(fs.machines, m_id)
+
+        affected = []
+        if fs.baseline_schedule:
+            affected = [
+                a["job_id"] for a in fs.baseline_schedule
+                if a.get("machine") in resolved_ids
+            ]
+
+        return {
+            "affected_jobs": affected,
+            "impact": {
+                "failed_machines": resolved_ids,
+                "affected_job_count": len(affected),
+                "description": f"Multiple stations ({', '.join(resolved_ids)}) failed. Cascading capacity loss across {len(affected)} operations.",
+            },
+        }
+
+    def _apply_material_shortage(self, disruption):
+        """Handle supply chain material stockout / delay."""
+        material_id = disruption.get("material_id", "RM-003")
+        fs = self.factory_state
+
+        # Find jobs or orders requiring this material
+        affected = [
+            j["job_id"] for j in fs.jobs
+            if j.get("material_required") == material_id
+        ]
+        if not affected and hasattr(fs, "production_orders") and fs.production_orders:
+            affected_orders = [o["order_id"] for o in fs.production_orders if o.get("material_required") == material_id or material_id in o.get("required_materials", {})]
+            affected = [j["job_id"] for j in fs.jobs if j.get("order_id") in affected_orders]
+
+        if not affected:
+            # Safe default to demonstrate feasible rescheduling
+            affected = [fs.jobs[0]["job_id"], fs.jobs[1]["job_id"]] if len(fs.jobs) > 1 else []
+
+        # Temporarily delay affected jobs deadlines so feasible operations are prioritized
+        for j in fs.jobs:
+            if j["job_id"] in affected:
+                j["deadline"] = j.get("deadline", 120) + 180
+
+        return {
+            "affected_jobs": affected,
+            "impact": {
+                "constrained_material": material_id,
+                "affected_job_count": len(affected),
+                "description": f"Material shortage on {material_id}. {len(affected)} dependent operations flagged; feasible jobs prioritized.",
+            },
+        }
+
+    def _apply_quality_issue(self, disruption):
+        """Handle machine quality drift or defect rate elevation."""
+        machine_id = disruption.get("machine_id", "M02")
+        defect_rate = disruption.get("defect_rate", 0.15)
+        fs = self.factory_state
+
+        from agents.disruption.scenarios import resolve_machine_id
+        m_resolved = resolve_machine_id(machine_id, fs.machines)
+
+        if m_resolved in fs.machines:
+            fs.machines[m_resolved]["health_score"] = max(25, int(fs.machines[m_resolved].get("health_score", 90) * 0.4))
+            fs.machines[m_resolved]["quality_rating"] = round(1.0 - defect_rate, 2)
+            # Mark machine offline / restricted so scheduler avoids sending tight-tolerance operations
+            fail_machine(fs.machines, m_resolved)
+
+        affected = []
+        if fs.baseline_schedule:
+            affected = [
+                a["job_id"] for a in fs.baseline_schedule
+                if a.get("machine") == m_resolved
+            ]
+
+        return {
+            "affected_jobs": affected,
+            "impact": {
+                "quality_flagged_machine": m_resolved,
+                "defect_rate": f"{defect_rate*100:.0f}%",
+                "affected_job_count": len(affected),
+                "description": f"Quality calibration drift on {m_resolved} (defect rate {defect_rate*100:.0f}%). Work rerouted to protect delivery tolerances.",
+            },
+        }
+
+    def _apply_energy_constraint(self, disruption):
+        """Handle peak electrical demand constraint."""
+        threshold_kw = disruption.get("threshold_kw", 65.0)
+        self.ga_weights = {
+            "makespan": 0.20,
+            "tardiness": 0.15,
+            "downtime": 0.05,
+            "energy": 0.60,
+        }
+        return {
+            "affected_jobs": [],
+            "impact": {
+                "threshold_kw": threshold_kw,
+                "weights": self.ga_weights,
+                "description": f"Factory demand threshold capped at {threshold_kw} kW. Scheduler re-weighted for peak power minimization.",
+            },
+        }
+
+    def run_scenario(self, scenario_id: int):
+        """Run an industrial operational scenario (1 to 10)."""
+        from agents.disruption.scenarios import ScenarioRunner
+        runner = ScenarioRunner(self)
+        return runner.run(scenario_id)
+
