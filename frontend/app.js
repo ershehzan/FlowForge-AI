@@ -556,11 +556,12 @@ function scrollToModule(sectionId) {
 }
 
 // ── MODULE 2: PRODUCTION WORKSPACE ──
-function switchProductionTab(tabName) {
+function switchProductionTab(tabName, evtTarget) {
   state.activeProductionTab = tabName;
   const buttons = document.querySelectorAll(".subnav-btn");
   buttons.forEach((b) => b.classList.remove("active"));
-  event.target.classList.add("active");
+  // evtTarget is the clicked button element passed explicitly from HTML onclick
+  if (evtTarget) evtTarget.classList.add("active");
 
   const tabContents = {
     orders: document.getElementById("tabContentOrders"),
@@ -1427,9 +1428,10 @@ async function triggerUrgentJob() {
       }),
     });
 
+    if (!res.ok) throw new Error(`Server error: ${res.status}`);
     const data = await res.json();
     state.isDisrupted = true;
-    state.currentSchedule = data.schedules.recovery || state.currentSchedule;
+    state.currentSchedule = (data.schedules && data.schedules.recovery) || state.currentSchedule;
     await refreshAllOperationalData();
     updateUI();
 
@@ -1452,9 +1454,10 @@ async function triggerDeadlineShift() {
       }),
     });
 
+    if (!res.ok) throw new Error(`Server error: ${res.status}`);
     const data = await res.json();
     state.isDisrupted = true;
-    state.currentSchedule = data.schedules.recovery || state.currentSchedule;
+    state.currentSchedule = (data.schedules && data.schedules.recovery) || state.currentSchedule;
     await refreshAllOperationalData();
     updateUI();
   } catch (err) {
@@ -1473,9 +1476,10 @@ async function triggerJobCancellation() {
       }),
     });
 
+    if (!res.ok) throw new Error(`Server error: ${res.status}`);
     const data = await res.json();
     state.isDisrupted = true;
-    state.currentSchedule = data.schedules.recovery || state.currentSchedule;
+    state.currentSchedule = (data.schedules && data.schedules.recovery) || state.currentSchedule;
     await refreshAllOperationalData();
     updateUI();
   } catch (err) {
@@ -1494,9 +1498,10 @@ async function triggerPlannedDowntime(machineId = "M4") {
       }),
     });
 
+    if (!res.ok) throw new Error(`Server error: ${res.status}`);
     const data = await res.json();
     state.isDisrupted = true;
-    state.currentSchedule = data.schedules.recovery || state.currentSchedule;
+    state.currentSchedule = (data.schedules && data.schedules.recovery) || state.currentSchedule;
     await refreshAllOperationalData();
     updateUI();
   } catch (err) {
@@ -1591,7 +1596,9 @@ function processSelectedFile(file) {
 
 async function runFlowForgeOptimization() {
   const btn = document.getElementById("btnRunFlowForge");
+  const metaText = document.getElementById("uploadMetaText");
   if (btn) btn.disabled = true;
+  if (metaText) metaText.innerHTML = `<span style="color:var(--text-muted)">⏳ Uploading and optimizing…</span>`;
 
   if (state.selectedFile) {
     const formData = new FormData();
@@ -1611,17 +1618,33 @@ async function runFlowForgeOptimization() {
         state.factory = data.factory_state;
         state.isDisrupted = false;
 
+        const summary = data.summary || {};
+        if (metaText) {
+          metaText.innerHTML = `<strong>${escapeHtml(state.selectedFile.name)}</strong> — ✅ Loaded. Jobs: ${summary.jobs_count || "?"}, Machines: ${summary.machines_count || "?"}. Optimized.`;
+        }
+
         await refreshAllOperationalData();
         updateUI();
 
-        document.getElementById("control-center").scrollIntoView({ behavior: "smooth" });
+        const ccSection = document.getElementById("control-center");
+        if (ccSection) ccSection.scrollIntoView({ behavior: "smooth" });
+      } else {
+        // Show user-friendly validation errors from the backend
+        const errors = data.error_messages || ["Upload failed. Please check the file format."];
+        if (metaText) {
+          metaText.innerHTML = `<span style="color:#ef4444;">❌ Upload failed:</span><br>${errors.map(e => `<span style="font-size:0.85em;color:#b91c1c">${escapeHtml(e)}</span>`).join('<br>')}`;
+        }
       }
     } catch (err) {
       console.error("Upload error:", err);
+      if (metaText) {
+        metaText.innerHTML = `<span style="color:#ef4444;">❌ Upload failed. Please check your connection and try again.</span>`;
+      }
     }
   } else {
     await initFlowForgeEngine();
-    document.getElementById("control-center").scrollIntoView({ behavior: "smooth" });
+    const ccSection = document.getElementById("control-center");
+    if (ccSection) ccSection.scrollIntoView({ behavior: "smooth" });
   }
 
   if (btn) btn.disabled = false;

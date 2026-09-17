@@ -152,6 +152,7 @@ class FactoryState:
     def to_dict(self):
         """Serialize factory state for API responses."""
         available, total = self.get_machine_count()
+        erp_data = self.erp_engine.to_dict()
         return {
             "factory_status": self.factory_status,
             "schedule_state": self.schedule_state,
@@ -165,8 +166,9 @@ class FactoryState:
             "disrupted_schedule": self.disrupted_schedule,
             "recovery_schedule": self.recovery_schedule,
             "current_schedule": self.get_current_schedule(),
-            "erp": self.erp_engine.to_dict(),
-            "erp_state": self.erp_engine.to_dict(),
+            # Both keys are included for backward-compat; prefer 'erp_state' in new code
+            "erp": erp_data,
+            "erp_state": erp_data,
             "history": self.history_records,
         }
 

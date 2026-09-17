@@ -2,18 +2,24 @@ import os
 import sys
 import time
 import re
+import logging
 
 # Ensure root directory is on sys.path
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
-from fastapi import FastAPI, UploadFile, File, status
+from fastapi import FastAPI, UploadFile, File, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Optional
+
+logger = logging.getLogger("flowforge")
+
+# Maximum allowed upload size: 10 MB
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
 from tools.csv_tool import read_jobs_csv
 
@@ -37,14 +43,30 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# CORS for frontend
+# CORS for frontend.
+# allow_credentials=False is correct when allow_origins=["*"] (wildcard).
+# Browsers reject credentials+wildcard anyway; this avoids misleading config.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
 )
+
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    """Add security headers to all responses."""
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    # Note: CSP is intentionally broad to support CDN GSAP/fonts loaded by the frontend.
+    # Tighten in production when a specific deployment origin is known.
+    response.headers["X-FlowForge-Version"] = "1.0.0"
+    return response
 
 # Serve frontend static files
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")
@@ -119,10 +141,63 @@ class DisruptionRequest(BaseModel):
     new_deadline: Optional[int] = None
     priority: Optional[int] = 5
 
+    @field_validator("type")
+    @classmethod
+    def validate_type(cls, v):
+        allowed = {"machine_failure", "machine_recovery", "urgent_job",
+                   "job_cancellation", "deadline_change", "machine_downtime"}
+        if v not in allowed:
+            raise ValueError(f"Unknown disruption type '{v}'. Allowed: {sorted(allowed)}")
+        return v
+
+    @field_validator("machine_id", "job_id")
+    @classmethod
+    def validate_id_chars(cls, v):
+        """Reject IDs with path-traversal or shell-injection characters."""
+        if v is not None:
+            v = str(v).strip()
+            if not re.match(r'^[A-Za-z0-9_\-]+$', v):
+                raise ValueError(f"ID contains invalid characters: '{v}'")
+            if len(v) > 64:
+                raise ValueError("ID too long (max 64 chars)")
+        return v
+
+    @field_validator("duration")
+    @classmethod
+    def validate_duration(cls, v):
+        if v is not None and v <= 0:
+            raise ValueError("duration must be a positive integer (> 0)")
+        if v is not None and v > 10000:
+            raise ValueError("duration exceeds maximum allowed value (10000 minutes)")
+        return v
+
+    @field_validator("deadline", "new_deadline")
+    @classmethod
+    def validate_deadline(cls, v):
+        if v is not None and v <= 0:
+            raise ValueError("deadline must be a positive integer (> 0)")
+        if v is not None and v > 100000:
+            raise ValueError("deadline exceeds maximum allowed value (100000 minutes)")
+        return v
+
+    @field_validator("priority")
+    @classmethod
+    def validate_priority(cls, v):
+        if v is not None and v not in range(1, 6):
+            raise ValueError("priority must be between 1 and 5")
+        return v
+
 
 class CopilotQueryRequest(BaseModel):
     query: Optional[str] = None
     question: Optional[str] = None
+
+    @field_validator("query", "question")
+    @classmethod
+    def validate_query_length(cls, v):
+        if v is not None and len(v) > 2000:
+            raise ValueError("Query too long (max 2000 characters)")
+        return v
 
     @property
     def prompt_text(self) -> str:
@@ -135,19 +210,30 @@ class CopilotQueryRequest(BaseModel):
 
 @app.post("/upload_jobs")
 async def upload_jobs(session_id: str, file: UploadFile = File(...)):
+    """Legacy CSV job upload endpoint. Session-scoped; files are cleaned up after parsing."""
     safe_session = re.sub(r'[^a-zA-Z0-9_\-]', '', session_id)
-    if not safe_session:
+    if not safe_session or len(safe_session) > 64:
         return JSONResponse(status_code=400, content={"error": "Invalid session_id"})
+
+    content = await file.read()
+    if len(content) > MAX_UPLOAD_BYTES:
+        return JSONResponse(status_code=413, content={"error": "File too large (max 10 MB)"})
+
     os.makedirs("data", exist_ok=True)
     path = os.path.join("data", f"{safe_session}.csv")
-    with open(path, "wb") as f:
-        f.write(await file.read())
-
-    raw = read_jobs_csv(path)
-    jobs = load_jobs_from_list(raw)
-    SESSIONS[session_id] = {"jobs": jobs}
-
-    return {"status": "ok", "jobs": len(jobs)}
+    try:
+        with open(path, "wb") as f:
+            f.write(content)
+        raw = read_jobs_csv(path)
+        jobs = load_jobs_from_list(raw)
+        SESSIONS[session_id] = {"jobs": jobs}
+        return {"status": "ok", "jobs": len(jobs)}
+    finally:
+        # Clean up the temporary CSV file after parsing
+        try:
+            os.remove(path)
+        except OSError:
+            pass
 
 @app.get("/schedule")
 async def schedule(session_id: str, rule: str = 'SPT'):
@@ -222,11 +308,16 @@ async def initialize_factory():
 @app.post("/factory/upload")
 async def upload_factory_excel(file: UploadFile = File(...)):
     """
-    Upload an Excel file containing Machines and Jobs sheets.
-    Validates workbook, converts into internal FactoryState, and automatically
-    runs the autonomous multi-objective GA scheduler.
+    Upload an Excel (.xlsx/.xls) or JSON file containing factory data.
+    Validates the workbook, converts it into internal FactoryState, and
+    automatically runs the autonomous multi-objective GA scheduler.
     """
-    filename = file.filename or "uploaded.xlsx"
+    # Never trust the client-supplied filename for filesystem operations.
+    # We only use it for display / logging.
+    raw_filename = file.filename or "uploaded"
+    # Sanitize: strip path components and limit length
+    safe_basename = os.path.basename(raw_filename.replace("\\", "/"))[:128]
+    filename = safe_basename if safe_basename else "uploaded"
     ext = os.path.splitext(filename)[1].lower()
 
     if ext not in [".xlsx", ".xls", ".json"]:
@@ -234,12 +325,26 @@ async def upload_factory_excel(file: UploadFile = File(...)):
             status_code=400,
             content={
                 "success": False,
-                "errors": [{"sheet": "File", "row": 0, "column": "Format", "message": f"Unsupported file format '{ext}'. Supported formats: .xlsx, .xls, .json."}],
-                "error_messages": [f"• Unsupported file format '{ext}'. Supported formats: .xlsx, .xls, .json."],
+                "errors": [{"sheet": "File", "row": 0, "column": "Format",
+                             "message": f"Unsupported file format '{ext}'. Supported: .xlsx, .xls, .json."}],
+                "error_messages": [f"• Unsupported file format '{ext}'. Supported: .xlsx, .xls, .json."],
             }
         )
 
     content = await file.read()
+
+    # Enforce upload size limit
+    if len(content) > MAX_UPLOAD_BYTES:
+        size_mb = len(content) / (1024 * 1024)
+        return JSONResponse(
+            status_code=413,
+            content={
+                "success": False,
+                "errors": [{"sheet": "File", "row": 0, "column": "Size",
+                             "message": f"File too large ({size_mb:.1f} MB). Maximum allowed: 10 MB."}],
+                "error_messages": [f"• File too large ({size_mb:.1f} MB). Maximum allowed: 10 MB."],
+            }
+        )
     if ext == ".json":
         parser = JsonParser()
     else:
@@ -314,49 +419,53 @@ async def apply_disruption(request: DisruptionRequest):
       - job_cancellation
       - deadline_change
     """
-    # Ensure baseline exists
+    # Ensure baseline exists — return HTTP 409 so frontend can detect this clearly
     if not factory.baseline_schedule:
-        return {"error": "Factory not initialized. Call POST /factory/initialize first."}
+        return JSONResponse(
+            status_code=409,
+            content={"error": "Factory not initialized. Call POST /factory/initialize first."}
+        )
 
     # Create the disruption event
     dtype = request.type
 
     if dtype == "machine_failure":
         if not request.machine_id:
-            return {"error": "machine_id is required for machine_failure"}
+            return JSONResponse(status_code=400, content={"error": "machine_id is required for machine_failure"})
         disruption = disruption_types.machine_failure(request.machine_id)
 
     elif dtype == "machine_recovery":
         if not request.machine_id:
-            return {"error": "machine_id is required for machine_recovery"}
+            return JSONResponse(status_code=400, content={"error": "machine_id is required for machine_recovery"})
         disruption = disruption_types.machine_recovery(request.machine_id)
 
     elif dtype == "urgent_job":
         if not request.job_id or not request.duration or not request.deadline:
-            return {"error": "job_id, duration, and deadline are required for urgent_job"}
+            return JSONResponse(status_code=400, content={"error": "job_id, duration, and deadline are required for urgent_job"})
         disruption = disruption_types.urgent_job(
             request.job_id, request.duration, request.deadline, request.priority or 5
         )
 
     elif dtype == "job_cancellation":
         if not request.job_id:
-            return {"error": "job_id is required for job_cancellation"}
+            return JSONResponse(status_code=400, content={"error": "job_id is required for job_cancellation"})
         disruption = disruption_types.job_cancellation(request.job_id)
 
     elif dtype == "deadline_change":
         if not request.job_id or not request.new_deadline:
-            return {"error": "job_id and new_deadline are required for deadline_change"}
+            return JSONResponse(status_code=400, content={"error": "job_id and new_deadline are required for deadline_change"})
         disruption = disruption_types.deadline_change(request.job_id, request.new_deadline)
 
     else:
-        return {"error": f"Unknown disruption type: {dtype}"}
+        # Should not reach here since Pydantic validator catches unknown types
+        return JSONResponse(status_code=400, content={"error": f"Unknown disruption type: {dtype}"})
 
     # Apply disruption through the engine
     engine = DisruptionEngine(factory)
     result = engine.apply(disruption)
 
     if "error" in result:
-        return result
+        return JSONResponse(status_code=409, content=result)
 
     # Calculate metrics for all three schedule states
     available = factory.get_available_machine_ids()
