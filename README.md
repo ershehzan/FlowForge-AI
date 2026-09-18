@@ -12,6 +12,7 @@
 **FlowForge AI** is an industrial-grade autonomous production resilience and shop-floor scheduling system. It detects machine failures, rush orders, and bottleneck shifts in real time, computes multi-objective optimized recovery plans, and visualizes shop-floor dynamics through dynamic Gantt charts and interactive machine controls -- all backed by a Genetic Algorithm optimizer and an AI-powered Operations Copilot.
 
 ---
+## Deployment link: https://flowforge-ai-uh0x.onrender.com/
 
 ## Table of Contents
 
